@@ -1,0 +1,1293 @@
+<!DOCTYPE html>
+<!-- saved from url=(0135)http://yxyy.name/blog/md.html?ossName=163362654150322845957991614307.md&title=%E8%BF%9B%E5%85%A5%E4%B8%89%E7%BB%B4%E4%B8%96%E7%95%8C-04 -->
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>李伟的博客</title>
+    <link rel="Shortcut Icon" href="https://yxyy-img.oss-cn-shanghai.aliyuncs.com/favicon.ico" type="image/x-icon">
+    <link rel="stylesheet" type="text/css" href="./进入三维世界-04_files/com.css">
+    <link rel="stylesheet" type="text/css" href="./进入三维世界-04_files/github-markdown.css">
+    <link rel="stylesheet" type="text/css" href="./进入三维世界-04_files/md.css">
+</head>
+<body>
+    <div id="app"><h1 class="text-center page-title">进入三维世界-04</h1> <div class="container"><article class="markdown-body"><h2 id="案例1-变换图片">案例1-变换图片</h2>
+<p>如果大家学到现在，理解了我们以前所说的知识。那我们就可以做很多很多好玩的东西了，虽然我们还没有说到灯光。</p>
+<p>以前大家在做项目的时候，经常会遇到基于某个基点对图形进行变换的问题。</p>
+<p>接下来，咱们就借这个问题巩固一下咱们之前所学的矩阵变换。</p>
+<h3 id="1-基点变换">1-基点变换</h3>
+<p>咱们先把思路跑通。</p>
+<h4 id="1-1-基点变换的原理">1-1-基点变换的原理</h4>
+<p><img src="./进入三维世界-04_files/163279591335806093849016900932.png" alt="image-20210922164200655"></p>
+<p>已知：</p>
+<ul>
+<li>图片img，img 在世界坐标系中</li>
+</ul>
+<p>求：让img基于其左上角点P点进行旋转和缩放的方法</p>
+<p>思路先行：</p>
+<ul>
+<li>对于这种问题，千万不要把目光都放在左上角点上，这样虽然也可以达到目的，但会做得很累。</li>
+<li>我们需要用矩阵的思想看问题，这样做起来，就会比较轻松。</li>
+</ul>
+<p>解：</p>
+<ol>
+<li><p>把img装饭盒里，饭盒的本地矩阵是mi。</p>
+<p>当前mi和世界坐标系重合。</p>
+</li>
+</ol>
+<p><img src="./进入三维世界-04_files/16336252247387590475581196525.png" alt="image-20210929155006995"></p>
+<ol start="2">
+<li>让mi 的位置减去点P</li>
+</ol>
+<p><img src="./进入三维世界-04_files/163362522473808907278807610552.png" alt="image-20210929155613965"></p>
+<p>​    如果我们现在旋转mi的话，饭盒会基于mi的坐标原点旋转，这明显不是我们想要的。</p>
+<p>​    那我们位移了mi有什么意义呢？且往后看。</p>
+<ol start="3">
+<li>把饭盒装冰箱里，冰箱的本地矩阵是mb。</li>
+</ol>
+<p><img src="./进入三维世界-04_files/163362522473829321260730302434.png" alt="image-20210929163926743"></p>
+<p>​    当前mb和世界坐标系重合。</p>
+<ol start="4">
+<li>让mb 的位置加上点P</li>
+</ol>
+<p><img src="./进入三维世界-04_files/16336252247384588992785297774.png" alt="image-20210929165124665"></p>
+<p>此时的img和最初始的img重合。</p>
+<p>此时img的左上角点P和mb的坐标原点重合</p>
+<p>此时我们旋转mb，冰箱会基于mb的坐标原点旋转，同时也带动了图片基于点P旋转。</p>
+<p>5.计算模型矩阵，变换图片顶点的初始点位，从而得到图片顶点基于点P变换后的位置。</p>
+<p>模型矩阵=mb*mi</p>
+<p>图片顶点基于点P变换后的位置=模型矩阵*图片顶点的初始点位</p>
+<p>效果如下：</p>
+<p><img src="./进入三维世界-04_files/16336252247389752549863765676.png" alt="image-20210929170337713"></p>
+<p>注：</p>
+<p>饭盒包含了图片的初始点位，可以理解为three.js中Object3D。</p>
+<p>冰箱包含了饭盒，可以理解为three.js中的Group。</p>
+<h4 id="1-2-基点变换的代码实现">1-2-基点变换的代码实现</h4>
+<p>1.先准备一张图片</p>
+<pre><code class="language-js">import { createProgram } from '../jsm/Utils.js';
+import { Matrix4, OrthographicCamera, Vector3, Vector2 } from 'https://unpkg.com/three/build/three.module.js';
+import OrbitControls from './jsm/OrbitControls.js'
+import Mat from './jsm/Mat.js'
+import Geo from './jsm/Geo.js'
+import Obj3D from './jsm/Obj3D.js'
+import Scene from './jsm/Scene.js'
+
+const canvas = document.getElementById('canvas');
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+const gl = canvas.getContext('webgl');
+gl.clearColor(0.0, 0.0, 0.0, 1.0);
+
+const halfH = 1
+const ratio = canvas.width / canvas.height
+const halfW = halfH * ratio
+const [left, right, top, bottom, near, far] = [
+    -halfW, halfW, halfH, -halfH, 1, 8
+]
+const eye = new Vector3(0, 0, 2)
+const target = new Vector3(0, 0, 0)
+const camera = new OrthographicCamera(
+    left, right, top, bottom, near, far
+)
+camera.position.copy(eye)
+camera.lookAt(target)
+camera.updateMatrixWorld()
+const pvMatrix = camera.projectionMatrix.clone().multiply(
+    camera.matrixWorldInverse
+)
+const scence = new Scene({ gl })
+
+/* 计算图片顶点 */
+const [w, h] = [0.6, 0.6]
+const [hw, hh] = [w / 2, h / 2]
+const vertices = new Float32Array([
+    -hw, hh,
+    -hw, -hh,
+    hw, hh,
+    hw, -hh,
+])
+
+const image = new Image()
+image.src = './images/erha.jpg'
+let mat = null
+image.onload = function () {
+    const vs = document.getElementById('textureVertexShader').innerText
+    const fs = document.getElementById('textureFragmentShader').innerText
+    const program = createProgram(gl, vs, fs)
+    mat = new Mat({
+        program,
+        data: {
+            u_PvMatrix: {
+                value: pvMatrix.elements,
+                type: 'uniformMatrix4fv',
+            },
+            u_ModelMatrix: {
+                value: new Matrix4().elements,
+                type: 'uniformMatrix4fv',
+            },
+        },
+        maps: {
+            u_Sampler: {
+                image,
+            }
+        },
+        mode: 'TRIANGLE_STRIP'
+    })
+    const geo = new Geo({
+        data: {
+            a_Position: {
+                array: vertices,
+                size: 2
+            },
+            a_Pin: {
+                array: new Float32Array([
+                    0, 1,
+                    0, 0,
+                    1, 1,
+                    1, 0,
+                ]),
+                size: 2
+            }
+        }
+    })
+    const obj = new Obj3D({ geo, mat })
+    scence.add(obj)
+    scence.draw()
+}
+</code></pre>
+<p>2.声明饭盒和冰箱的本地矩阵，以及图片的变换基点</p>
+<pre><code class="language-js">// 饭盒的本地矩阵
+const mi = new Matrix4()
+// 冰箱的本地矩阵
+const mb = new Matrix4()
+// 模型矩阵
+const mm = new Matrix4()
+// 基点
+let orignInd = 0
+</code></pre>
+<p>上面的模型矩阵mm之后会在渲染时，由mb*mi得到。</p>
+<p>3.基于图片的变换基点布阵</p>
+<pre><code class="language-js">setOrign(orignInd)
+function setOrign(i) {
+    const [x, y] = [vertices[i], vertices[i + 1]]
+    mi.setPosition(-x, -y, 0)
+    mb.setPosition(x, y, 0)
+}
+</code></pre>
+<p>4.在渲染方法里变换冰箱后，乘以饭盒的本地矩阵，得到图片的模型矩阵</p>
+<pre><code class="language-js">let ang = 0
+function render() {
+    ang += 0.02
+    const s = (Math.sin(ang) + 1) / 2
+    mm.copy(
+        mb.clone()
+        .multiply(
+            new Matrix4().makeRotationZ(ang)
+        )
+        .scale(new Vector3(s, s, 1))
+        .multiply(mi)
+    )
+    mat.setData('u_ModelMatrix', {
+        value: mm.elements
+    })
+    scence.draw()
+    requestAnimationFrame(render)
+}
+</code></pre>
+<h3 id="2-二次基点变换">2-二次基点变换</h3>
+<p>接下来，我们再思考一个问题。</p>
+<p>继我们上一次变换之后，若我们想再基于图片的其它角点进行变换，比如右下角，应该怎么办呢？</p>
+<p>这个问题的解决思路并不唯一，咱先说一个最简单的思路：</p>
+<p>1.每一次变换完成后，直接基于上一次的模型矩阵修改顶点的原始点位。</p>
+<p>2.基于新的基点位置，重复第一次基点变换的步骤。</p>
+<p>咱们用例子说一下其代码实现：</p>
+<p>我想让上面的图片每旋转45°，改变一次变换基点。</p>
+<p>具体代码如下：</p>
+<pre><code class="language-js">function render() {
+    ang += 0.005
+    if (ang &gt; Math.PI / 4) {
+        ang = 0
+        formatVertices()
+        orignInd = (orignInd + 2) % 8
+        setOrign(orignInd)
+    }
+    const s = (Math.sin(ang * 8 + Math.PI / 2) + 1) / 2
+    mm.copy(
+        mb.clone()
+        .multiply(
+            new Matrix4().makeRotationZ(ang)
+        )
+        .scale(new Vector3(s, s, 1))
+        .multiply(mi)
+    )
+    mat.setData('u_ModelMatrix', {
+        value: mm.elements
+    })
+    scence.draw()
+    requestAnimationFrame(render)
+}
+
+function formatVertices() {
+    for (let i = 0; i &lt; vertices.length; i += 2) {
+        const p = new Vector3(vertices[i], vertices[i + 1], 0)
+        .applyMatrix4(mm)
+        vertices[i] = p.x
+        vertices[i + 1] = p.y
+    }
+    geo.setData('a_Position', {
+        array: vertices
+    })
+}
+</code></pre>
+<p>上面的formatVertices() 方法便是基于模型矩阵格式化vertices点位的方法，修改完后，同步更新geo几何体里的顶点点位。</p>
+<h3 id="3-用鼠标变换图片">3-用鼠标变换图片</h3>
+<p>在一些可视化编辑器项目中，经常会遇到用鼠标变换图片的需求，就比如T恤的图案设计。</p>
+<p><img src="./进入三维世界-04_files/16336252247387487310243205156.jpg" alt="preview"></p>
+<p>上面这个案例的具体业务逻辑，我就先不写了，时间有限，咱们先只讲核心，说一下如何用鼠标变换图片。</p>
+<h4 id="3-1-功能描述">3-1-功能描述</h4>
+<p>1.变换节点</p>
+<p>变换节点就是图片的四个角点+描边。</p>
+<p>变换节点没啥实际功能，就是整个视觉样式，让用户知道此图可变换。</p>
+<p><img src="./进入三维世界-04_files/163279591335811096058922082808.png" alt="image-20210927165006407"></p>
+<p>2.位移</p>
+<p>当鼠标在图片中的时候，按住鼠标可以拖拽图片。</p>
+<p><img src="./进入三维世界-04_files/16327959133589553567163361536.png" alt="image-20210927165353304"></p>
+<p>3.缩放</p>
+<p>当鼠标到图片节点的距离小于15像素时，开启鼠标对图片的缩放功能。</p>
+<p>默认：居中+等比缩放</p>
+<p>alt 键：以鼠标对面的点为基点进行缩放</p>
+<p>shift 键：自由缩放</p>
+<p><img src="./进入三维世界-04_files/16327959133586428166984014672.png" alt="image-20210927165520938"></p>
+<p>3.旋转</p>
+<p>当鼠标到图片节点的距离小于40像素时，开启鼠标对图片的旋转功能。</p>
+<p>默认：居中+按照特定弧度(15°)旋转</p>
+<p>alt 键：以鼠标对面的点为基点进行旋转</p>
+<p>shift 键：自由旋转</p>
+<p><img src="./进入三维世界-04_files/16327959133581926068520759081.png" alt="image-20210927170246090"></p>
+<p>基本的变换功能就是这样，接下来咱们说一下具体的代码实现。</p>
+<h4 id="3-2-前期准备-图片外框">3-2-前期准备-图片+外框</h4>
+<p>1.准备两套着色器，一套绘制点和线，一套着纹理。</p>
+<pre><code class="language-html">&lt;!-- 点和线 --&gt;
+&lt;script id="solidVertexShader" type="x-shader/x-vertex"&gt;
+    attribute vec4 a_Position;
+    uniform mat4 u_PvMatrix;
+    uniform mat4 u_ModelMatrix;
+    void main(){
+      gl_Position = u_PvMatrix*u_ModelMatrix*a_Position;
+      gl_PointSize=10.0;
+    }
+&lt;/script&gt;
+&lt;script id="solidFragmentShader" type="x-shader/x-fragment"&gt;
+    precision mediump float;
+    void main(){
+      gl_FragColor=vec4(1.0,1.0,1.0,1.0);
+    }
+&lt;/script&gt;
+&lt;!-- 着纹理 --&gt;
+&lt;script id="textureVertexShader" type="x-shader/x-vertex"&gt;
+    attribute vec4 a_Position;
+    attribute vec2 a_Pin;
+    uniform mat4 u_PvMatrix;
+    uniform mat4 u_ModelMatrix;
+    varying vec2 v_Pin;
+    void main(){
+      gl_Position = u_PvMatrix*u_ModelMatrix*a_Position;
+      v_Pin=a_Pin;
+    }
+&lt;/script&gt;
+&lt;script id="textureFragmentShader" type="x-shader/x-fragment"&gt;
+    precision mediump float;
+    uniform sampler2D u_Sampler;
+    varying vec2 v_Pin;
+    void main(){
+      gl_FragColor=texture2D(u_Sampler,v_Pin);
+    }
+&lt;/script&gt;
+</code></pre>
+<p>2.准备webgl上下文对象</p>
+<pre><code class="language-js">import { createProgram } from '../jsm/Utils.js';
+import { Matrix4, OrthographicCamera, Vector3, Vector2 } from 'https://unpkg.com/three/build/three.module.js';
+import OrbitControls from './jsm/OrbitControls.js'
+import Mat from './jsm/Mat.js'
+import Geo from './jsm/Geo.js'
+import Obj3D from './jsm/Obj3D.js'
+import Scene from './jsm/Scene.js'
+import Rect from './jsm/Rect.js'
+
+const canvas = document.getElementById('canvas');
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+const gl = canvas.getContext('webgl');
+gl.clearColor(0.0, 0.0, 0.0, 1.0);
+</code></pre>
+<p>3.通过正交相机获取投影视图矩阵</p>
+<pre><code class="language-js">const halfH = 1
+const ratio = canvas.width / canvas.height
+const halfW = halfH * ratio
+const [left, right, top, bottom, near, far] = [
+    -halfW, halfW, halfH, -halfH, 1, 8
+]
+const eye = new Vector3(0, 0, 2)
+const target = new Vector3(0, 0, 0)
+const camera = new OrthographicCamera(
+    left, right, top, bottom, near, far
+)
+camera.position.copy(eye)
+camera.lookAt(target)
+camera.updateMatrixWorld()
+const pvMatrix = camera.projectionMatrix.clone().multiply(
+    camera.matrixWorldInverse
+)
+</code></pre>
+<p>4.通过图片尺寸，获取图片和图片外框的顶点</p>
+<pre><code class="language-js">// 图片尺寸
+const [w, h] = [0.6, 0.6]
+const [hw, hh] = [w / 2, h / 2]
+// 图片顶点
+const vertices = new Float32Array([
+    -hw, hh,
+    -hw, -hh,
+    hw, hh,
+    hw, -hh,
+])
+// 图片外框顶点
+let verticesOut = getVerticesOut()
+
+/* 基于vertices获取verticesOut */
+function getVerticesOut() {
+    return new Float32Array([
+        vertices[0], vertices[1],
+        vertices[2], vertices[3],
+        vertices[6], vertices[7],
+        vertices[4], vertices[5],
+    ])
+}
+</code></pre>
+<p>注：</p>
+<p>图片是用TRIANGLE_STRIP三角带画的；</p>
+<p>图片外框是用LINE_LOOP 闭合线条和点POINTS 画的。</p>
+<p>图片和图片外框的顶点排序是不同的。</p>
+<p>5.绘制图片外框和图片</p>
+<pre><code class="language-js">// 场景
+const scence = new Scene({ gl })
+
+// 图片外框-点和线
+let matOut = null
+let geoOut = null
+{
+    const vs = document.getElementById('solidVertexShader').innerText
+    const fs = document.getElementById('solidFragmentShader').innerText
+    const program = createProgram(gl, vs, fs)
+    matOut = new Mat({
+        program,
+        data: {
+            u_PvMatrix: {
+                value: pvMatrix.elements,
+                type: 'uniformMatrix4fv',
+            },
+            u_ModelMatrix: {
+                value: new Matrix4().elements,
+                type: 'uniformMatrix4fv',
+            },
+        },
+        mode: ['LINE_LOOP', 'POINTS']
+    })
+    geoOut = new Geo({
+        data: {
+            a_Position: {
+                array: verticesOut,
+                size: 2
+            },
+        }
+    })
+    const obj = new Obj3D({ geo: geoOut, mat: matOut })
+    scence.add(obj)
+}
+
+// 图片
+const image = new Image()
+image.src = './images/erha.jpg'
+let mat = null
+let geo = null
+image.onload = function () {
+    const vs = document.getElementById('textureVertexShader').innerText
+    const fs = document.getElementById('textureFragmentShader').innerText
+    const program = createProgram(gl, vs, fs)
+    mat = new Mat({
+        program,
+        data: {
+            u_PvMatrix: {
+                value: pvMatrix.elements,
+                type: 'uniformMatrix4fv',
+            },
+            u_ModelMatrix: {
+                value: new Matrix4().elements,
+                type: 'uniformMatrix4fv',
+            },
+        },
+        maps: {
+            u_Sampler: {
+                image,
+            }
+        },
+        mode: 'TRIANGLE_STRIP'
+    })
+    geo = new Geo({
+        data: {
+            a_Position: {
+                array: vertices,
+                size: 2
+            },
+            a_Pin: {
+                array: new Float32Array([
+                    0, 1,
+                    0, 0,
+                    1, 1,
+                    1, 0,
+                ]),
+                size: 2
+            }
+        }
+    })
+    const obj = new Obj3D({ geo, mat })
+    scence.unshift(obj)
+    scence.draw()
+}
+</code></pre>
+<p>scence.unshift(obj) 以前置的方式添加三维对象。</p>
+<pre><code class="language-js">unshift(...objs) {
+    const { children, gl } = this
+    objs.forEach(obj =&gt; {
+        children.unshift(obj)
+        obj.parent=this
+        obj.init(gl)
+    })
+}
+</code></pre>
+<p>我之所以这么做是为了将图片放在图框下面，也就是先渲染图片，再渲染图框。</p>
+<p>效果如下：</p>
+<p><img src="./进入三维世界-04_files/163279591335811096058922082808.png" alt="image-20210927165006407"></p>
+<p>接下来我们便可以在图片上添加鼠标交互事件了。</p>
+<h4 id="3-3-拖拽图片">3-3-拖拽图片</h4>
+<p>拖拽图片是比较简单的，所以咱们先从最简单的说起。</p>
+<p>1.先声明一些必备变量</p>
+<pre><code class="language-js">// 变换状态
+let state = 'none'
+// 变换数据是否发生改变
+let change = false
+// 变换状态与cursor状态的对应关系
+const cursorMap = new Map([
+    ['drag', 'move'],
+    ['rotate', 'alias'],
+    ['scale', 'pointer'],
+    ['none', 'default'],
+])
+
+// 拖拽起始位与结束位(世界坐标系)
+const dragStart = new Vector2()
+const dragEnd = new Vector2()
+// 位移量
+let offset = new Vector2()
+// 饭盒本地矩阵
+const mi = new Matrix4()
+// 冰箱本地矩阵
+const mb = new Matrix4()
+// 模型矩阵
+const mm = new Matrix4()
+</code></pre>
+<p>2.监听canvas的鼠标按下事件</p>
+<pre><code class="language-js">canvas.addEventListener('mousedown', event =&gt; {
+    // 获取鼠标的世界坐标位
+    const mp = worldPos(event)
+    // 获取变换状态，如果鼠标在图像里，那么变换状态就是'drag'
+    if (isInImg(mp)) {
+        state = 'drag'
+        dragStart.copy(mp)
+    }
+})
+</code></pre>
+<p>鼠标按下时，主要做了2件事情：</p>
+<ul>
+<li>鼠标在canvas中的位置转世界位，以便于判断鼠标和图片顶点的关系。</li>
+</ul>
+<pre><code class="language-js">const mp = worldPos(event)
+</code></pre>
+<pre><code class="language-js">function worldPos({ clientX, clientY }) {
+    const [hw, hh] = [canvas.width / 2, canvas.height / 2]
+    // 裁剪空间位
+    const cp = new Vector3(
+        (clientX - hw) / hw,
+        -(clientY - hh) / hh,
+        0
+    )
+    // 鼠标在世界坐标系中的位置
+    const p = cp.applyMatrix4(
+        pvMatrix.clone().invert()
+    )
+    return new Vector2(p.x, p.y)
+}
+</code></pre>
+<p>回顾一下我们之前所学的矩阵知识：</p>
+<pre><code class="language-js">裁剪空间位 = 投影视图矩阵 * 模型矩阵 * 初始顶点位
+</code></pre>
+<p>由上式可得：</p>
+<pre><code class="language-js">初始顶点位=(投影视图矩阵*模型矩阵)的逆矩阵*裁剪空间位
+</code></pre>
+<p>因为图片顶点就是基于世界坐标系定位的，世界坐标系是单位矩阵，任何矩阵与单位矩阵相乘都不会发生改变，所以模型矩阵可以忽略。</p>
+<p>最终，鼠标的世界点位就是这样的：</p>
+<pre><code class="language-js">const p = cp.applyMatrix4(
+    pvMatrix.clone().invert()
+)
+</code></pre>
+<ul>
+<li>获取变换状态，如果鼠标在图像里，那么变换状态就是'drag'。</li>
+</ul>
+<pre><code class="language-js">if (isInImg(mp)) {
+    state = 'drag'
+    dragStart.copy(mp)
+}
+</code></pre>
+<p>isInImg(dragStart) 是判断鼠标是否在图像中的方法。</p>
+<pre><code class="language-js">function isInImg(p) {
+    return inTriangle(
+        p,
+        [
+            { x: vertices[0], y: vertices[1] },
+            { x: vertices[2], y: vertices[3] },
+            { x: vertices[4], y: vertices[5] },
+        ]
+    ) || inTriangle(
+        p,
+        [
+            { x: vertices[4], y: vertices[5] },
+            { x: vertices[2], y: vertices[3] },
+            { x: vertices[6], y: vertices[7] },
+        ]
+    )
+}
+</code></pre>
+<p>inTriangle()：判断顶点是否在三角形中，返回布尔值。</p>
+<p>因为图片由两个三角形组成，所以我做了两次判断。</p>
+<p>只要点位在任意三角形中，就说明点位在图片中。</p>
+<p>至于判断点位是否在三角形中的方法，我们之前说过。</p>
+<pre><code class="language-js">function inTriangle(p0, triangle) {
+  let bool = true;
+  for (let i = 0; i &lt; 3; i++) {
+    const j = (i + 1) % 3;
+    const [p1, p2] = [triangle[i], triangle[j]];
+    if (cross([p0, p1, p2]) &lt; 0) {
+      bool = false;
+      break
+    }
+  }
+  return bool;
+}
+function cross([p0, p1, p2]) {
+  const [ax, ay, bx, by] = [
+    p1.x - p0.x,
+    p1.y - p0.y,
+    p2.x - p0.x,
+    p2.y - p0.y,
+  ];
+  return ax * by - bx * ay;
+}
+</code></pre>
+<p>3.监听canvas的鼠标移动事件</p>
+<pre><code class="language-js">canvas.addEventListener('mousemove', event =&gt; {
+    // 获取鼠标世界位
+    const mp = worldPos(event)
+    // 设置鼠标样式
+    if (state === 'none') {
+        let cursorState = 'none'
+        if (isInImg(mp)) {
+            cursorState = 'drag'
+        }
+        canvas.style.cursor = cursorMap.get(cursorState)
+        return
+    }
+    // 变换图片
+    dragEnd.copy(mp)
+    change = true
+    switch (state) {
+        case 'drag':
+            drag()
+            break
+    }
+    //渲染
+    render()
+})
+</code></pre>
+<p>鼠标移动时，主要做了4件事情：</p>
+<ul>
+<li><p>获取鼠标世界位，以便于判断鼠标和图片顶点的关系。</p>
+</li>
+<li><p>设置鼠标样式，此操作是在图片不处于任何变换状态时执行的。</p>
+</li>
+<li><p>变换图片</p>
+<ul>
+<li>drag()：通过拖拽结束位减拖拽起始位得到图片的偏移量。</li>
+</ul>
+<pre><code class="language-js">function drag() {
+    offset.copy(
+        dragEnd.clone().sub(dragStart)
+    )
+}
+</code></pre>
+</li>
+<li><p>渲染 render()</p>
+</li>
+</ul>
+<pre><code class="language-js">function render() {
+    const { elements } = mm.copy(getModelMatrix())
+    mat.setData('u_ModelMatrix', {
+        value: elements
+    })
+    matOut.setData('u_ModelMatrix', {
+        value: elements
+    })
+    scence.draw()
+}
+</code></pre>
+<p>我们重点看一下计算模型矩阵的方法getModelMatrix()</p>
+<pre><code class="language-js">function getModelMatrix() {
+    // 位移矩阵
+    const { x: px, y: py } = offset
+    const moveMatrix = new Matrix4().set(
+        1, 0, 0, px,
+        0, 1, 0, py,
+        0, 0, 1, 0,
+        0, 0, 0, 1,
+    )
+    // 模型矩阵
+    return mb.clone()
+        .multiply(moveMatrix)
+        .multiply(mi)
+}
+</code></pre>
+<p>3.监听canvas的鼠标抬起事件</p>
+<pre><code class="language-js">canvas.addEventListener('mouseup', () =&gt; {
+    if (state !== 'none') {
+        state = 'none'
+        if (change) {
+            change = false
+            offset.set(0, 0)
+            canvas.style.cursor = 'default'
+            formatVertices()
+        }
+    }
+})
+</code></pre>
+<p>鼠标抬起时，主要做了以下事情：</p>
+<ul>
+<li>清理state 状态</li>
+<li>清空图片的变换数据</li>
+<li>恢复鼠标样式</li>
+<li>格式化顶点数据，并更新几何体的顶点集合</li>
+</ul>
+<pre><code class="language-js">function formatVertices() {
+    for (let i = 0; i &lt; vertices.length; i += 2) {
+        const p = new Vector3(vertices[i], vertices[i + 1], 0)
+        .applyMatrix4(mm)
+        vertices[i] = p.x
+        vertices[i + 1] = p.y
+    }
+    verticesOut = getVerticesOut()
+    geo.setData('a_Position', {
+        array: vertices
+    })
+    geoOut.setData('a_Position', {
+        array: verticesOut
+    })
+}
+</code></pre>
+<h4 id="3-4-旋转图片">3-4-旋转图片</h4>
+<p>1.声明必备变量</p>
+<pre><code class="language-js">// 变换基点
+let orign = new Vector2()
+// 拖拽起始位与结束位减变换基点位
+const start2Orign = new Vector2()
+const end2Orign = new Vector2()
+// 旋转起始弧度
+let startAng = 0
+// 旋转量
+let angle = 0
+</code></pre>
+<p>2.鼠标按下</p>
+<pre><code class="language-js">canvas.addEventListener('mousedown', event =&gt; {
+    // 获取鼠标拖拽的起始位dragStart，此位置为世界坐标位
+    const mp = worldPos(event)
+    // 获取变换状态，如果鼠标在图像里，那么变换状态就是'drag'
+    if (isInImg(mp)) {
+        state = 'drag'
+        dragStart.copy(mp)
+    } else {
+        const node = selectNode(mp)
+        if (node) {
+            dragStart.copy(mp)
+            state = node.state
+            setOrign()
+            start2Orign.subVectors(dragStart, orign)
+            startAng = Math.atan2(start2Orign.y, start2Orign.x)
+        }
+    }
+})
+</code></pre>
+<p>鼠标按下时，只要不是在图片里，就会做以下事情：</p>
+<ul>
+<li>选择节点selectNode(dragStart)，返回节点索引和变换状态</li>
+</ul>
+<pre><code class="language-js">function selectNode(m) {
+    let node = null
+    for (let i = 0; i &lt; vertices.length; i += 2) {
+        const v = new Vector2(vertices[i], vertices[i + 1])
+        const len = m.clone().sub(v).length() * canvas.height / 2
+        if (len &lt; 40) {
+            node = { index: i, state: 'rotate' }
+            break
+        }
+    }
+    return node
+}
+</code></pre>
+<ul>
+<li><p>若选中节点，则更新变换状态、基点、拖拽起点相对于基点的位置、起始弧度。</p>
+<p>详细看一下设置基点的方法：</p>
+</li>
+</ul>
+<pre><code class="language-js">function setOrign() {
+    const { x, y } = getCenter()
+    orign.set(x, y)
+    mi.makeTranslation(-x, -y, 0)
+    mb.makeTranslation(x, y, 0)
+}
+function getCenter() {
+      let [x1, y1] = [vertices[0], vertices[1]]
+      let [x2, y2] = [vertices[6], vertices[7]]
+      return new Vector2(
+        x1 + (x2 - x1) / 2,
+        y1 + (y2 - y1) / 2
+      )
+    }
+</code></pre>
+<p>3.鼠标移动</p>
+<pre><code class="language-js">canvas.addEventListener('mousemove', event =&gt; {
+    // 获取鼠标世界位
+    const mp = worldPos(event)
+    // 设置鼠标样式
+    if (state === 'none') {
+        let cursorState = 'none'
+        if (isInImg(mp)) {
+            cursorState = 'drag'
+        } else {
+            const node = selectNode(mp)
+            cursorState = node ? node.state : 'none'
+        }
+        canvas.style.cursor = cursorMap.get(cursorState)
+        return
+    }
+    // 变换图片
+    dragEnd.copy(mp)
+    end2Orign.subVectors(mp, orign)
+    change = true
+    switch (state) {
+        case 'drag':
+            drag()
+            break
+        case 'rotate':
+            rotate()
+            break
+    }
+    //渲染
+    render()
+})
+</code></pre>
+<ul>
+<li>rotate() 旋转方法</li>
+</ul>
+<pre><code class="language-js">function rotate() {
+    const endAng = Math.atan2(end2Orign.y, end2Orign.x)
+    angle = endAng - startAng
+}
+</code></pre>
+<ul>
+<li>render() 方法无需改变，只是其中获取模型矩阵getModelMatrix() 的方法里，需要把旋转量算进去。</li>
+</ul>
+<pre><code class="language-js">function getModelMatrix() {
+    // 位移矩阵
+    const { x: px, y: py } = offset
+    const moveMatrix = new Matrix4().set(
+        1, 0, 0, px,
+        0, 1, 0, py,
+        0, 0, 1, 0,
+        0, 0, 0, 1,
+    )
+    // 旋转矩阵
+    const [s, c] = [Math.sin(angle), Math.cos(angle),]
+    const rotateMatrix = new Matrix4().set(
+        c, -s, 0, 0,
+        s, c, 0, 0,
+        0, 0, 1, 0,
+        0, 0, 0, 1,
+    )
+    // 模型矩阵
+    return mb.clone()
+        .multiply(moveMatrix)
+        .multiply(rotateMatrix)
+        .multiply(mi)
+}
+</code></pre>
+<p>3.鼠标抬起</p>
+<pre><code class="language-js">canvas.addEventListener('mouseup', () =&gt; {
+    if (state !== 'none') {
+        state = 'none'
+        if (change) {
+            change = false
+            offset.set(0, 0)
+            angle = 0
+            canvas.style.cursor = 'default'
+            formatVertices()
+        }
+    }
+})
+</code></pre>
+<p>图片旋转的整体逻辑就是这样，当前图片默认是基于图片中心自由旋转。</p>
+<p>我们可以再为其做一下优化：按住alt键，基于鼠标对面的节点变换。</p>
+<p>4.alt 键改变基点</p>
+<pre><code class="language-js">// 当前按下的键
+let keys = new Set()
+// 当前节点索引
+let nodeInd = 0
+// 节点对面的点
+const opposite = new Map([[0, 6], [2, 4], [6, 0], [4, 2]])
+
+// 监听canvas的鼠标按下事件
+canvas.addEventListener('mousedown', event =&gt; {
+    // 获取鼠标拖拽的起始位dragStart，此位置为世界坐标位
+    const mp = worldPos(event)
+    // 获取变换状态，如果鼠标在图像里，那么变换状态就是'drag'
+    if (isInImg(mp)) {
+        state = 'drag'
+        dragStart.copy(mp)
+    } else {
+        const node = selectNode(mp)
+        if (node) {
+            dragStart.copy(mp)
+            state = node.state
+            nodeInd = node.index
+            setOrign()
+            start2Orign.subVectors(dragStart, orign)
+            startAng = Math.atan2(start2Orign.y, start2Orign.x)
+        }
+    }
+})
+
+window.addEventListener('keydown', ({ keyCode }) =&gt; {
+    keys.add(keyCode)
+    setOrign()
+})
+window.addEventListener('keyup', ({ keyCode }) =&gt; {
+    keys.delete(keyCode)
+    setOrign()
+})
+
+/* 设置基点 */
+function setOrign() {
+    const { x, y } = keys.has(18) ? getOppo() : getCenter()
+    orign.set(x, y)
+    mi.makeTranslation(-x, -y, 0)
+    mb.makeTranslation(x, y, 0)
+}
+
+// 对面的点
+function getOppo() {
+    const i2 = opposite.get(nodeInd)
+    return new Vector2(vertices[i2], vertices[i2 + 1])
+}
+// 中点
+function getCenter() {
+    let [x1, y1] = [vertices[0], vertices[1]]
+    let [x2, y2] = [vertices[6], vertices[7]]
+    return new Vector2(
+        x1 + (x2 - x1) / 2,
+        y1 + (y2 - y1) / 2
+    )
+}
+</code></pre>
+<p>5.默认按照特定弧度旋转。按住shift键时，再自由旋转。</p>
+<pre><code class="language-js">// 每次旋转的弧度
+let angSpace = Math.PI / 12
+function rotate() {
+    const endAng = Math.atan2(end2Orign.y, end2Orign.x)
+    angle = endAng - startAng
+    if (!keys.has(16)) {
+        angle = Math.round(angle / angSpace) * angSpace
+    }
+}
+</code></pre>
+<h4 id="3-5-缩放图片">3-5-缩放图片</h4>
+<p>1.建立必备变量</p>
+<pre><code class="language-js">// 缩放量
+let zoom = new Vector2(1, 1)
+</code></pre>
+<p>2.鼠标移动</p>
+<pre><code class="language-js">canvas.addEventListener('mousemove', event =&gt; {
+    ……
+    switch (state) {
+            ……
+            case 'scale':
+                scale()
+                break
+    }
+    render()
+})
+
+/* 缩放 */
+function scale() {
+    const sx = end2Orign.x / start2Orign.x
+    const sy = end2Orign.y / start2Orign.y
+    if (keys.has(16)) {
+        //自由缩放
+        zoom.set(sx, sy)
+    } else {
+        //等比缩放
+        const ratio = end2Orign.length() / start2Orign.length()
+        zoom.set(
+            ratio * sx / Math.abs(sx),
+            ratio * sy / Math.abs(sy),
+        )
+    }
+}
+</code></pre>
+<p>3.选择节点</p>
+<pre><code class="language-js">function selectNode(m) {
+    let node = null
+    for (let i = 0; i &lt; vertices.length; i += 2) {
+        const v = new Vector2(vertices[i], vertices[i + 1])
+        const len = m.clone().sub(v).length() * canvas.height / 2
+        if (len &lt; 15) {
+            node = { index: i, state: 'scale' }
+            break
+        } else if (len &lt; 40) {
+            node = { index: i, state: 'rotate' }
+            break
+        }
+    }
+    return node
+}
+</code></pre>
+<p>4.鼠标抬起</p>
+<pre><code class="language-js">canvas.addEventListener('mouseup', event =&gt; {
+    ……
+    zoom = new Vector2(1, 1)
+    ……
+})
+</code></pre>
+<p>5.模型矩阵</p>
+<pre><code class="language-js">function getModelMatrix() {
+    // 位移矩阵
+    const { x: px, y: py } = offset
+    const moveMatrix = new Matrix4().set(
+        1, 0, 0, px,
+        0, 1, 0, py,
+        0, 0, 1, 0,
+        0, 0, 0, 1,
+    )
+    // 旋转矩阵
+    const [s, c] = [Math.sin(angle), Math.cos(angle),]
+    const rotateMatrix = new Matrix4().set(
+        c, -s, 0, 0,
+        s, c, 0, 0,
+        0, 0, 1, 0,
+        0, 0, 0, 1,
+    )
+    // 缩放矩阵
+    const { x: sx, y: sy } = zoom
+    const scaleMatrix = new Matrix4().set(
+        sx, 0, 0, 0,
+        0, sy, 0, 0,
+        0, 0, 1, 0,
+        0, 0, 0, 1,
+    )
+    // 模型矩阵
+    return mb.clone()
+        .multiply(moveMatrix)
+        .multiply(rotateMatrix)
+        .multiply(scaleMatrix)
+        .multiply(mi)
+}
+</code></pre>
+<p>上面的位移、旋转、缩放矩阵，我是故意展开的，以方便大家理解矩阵变换的本质。</p>
+<p>其实我们也可以使用Matrix4 对象内置的方法进行变换。</p>
+<pre><code class="language-js">function getModelMatrix() {
+    return mb.clone()
+        .multiply(
+            new Matrix4().makeTranslation(
+                position.x, position.y, 0
+            )
+        )
+        .multiply(
+            new Matrix4().makeRotationZ(angle)
+        )
+        .scale(new Vector3(zoom.x, zoom.y, 1))
+        .multiply(mi)
+}
+</code></pre>
+<p>到目前为止，缩放的基本流程就搞定了。</p>
+<p>然而，镜像缩放时，还会带来一个坑，此坑会影响图片的选择。</p>
+<h4 id="3-6-镜像缩放时的图片选择">3-6-镜像缩放时的图片选择</h4>
+<p>且看下图：</p>
+<p><img src="./进入三维世界-04_files/16336252247384042638884387746.png" alt="image-20210929103553921"></p>
+<p>我们之前是通过下面的方法判断点位是否在三角形中的：</p>
+<pre><code class="language-js">function inTriangle(p0, triangle) {
+  let bool = true;
+  for (let i = 0; i &lt; 3; i++) {
+    const j = (i + 1) % 3;
+    const [p1, p2] = [triangle[i], triangle[j]];
+    if (cross([p0, p1, p2]) &lt; 0) {
+      bool = false;
+      break
+    }
+  }
+  return bool;
+}
+function cross([p0, p1, p2]) {
+  const [ax, ay, bx, by] = [
+    p1.x - p0.x,
+    p1.y - p0.y,
+    p2.x - p0.x,
+    p2.y - p0.y,
+  ];
+  return ax * by - bx * ay;
+}
+</code></pre>
+<p>上面的 cross([p0, p1, p2]) &lt; 0 是针对逆时针绘图的情况来判断的。</p>
+<p>若是顺时针绘图，点位在三角形中需要满足的条件就应该是cross([p0, p1, p2]) &gt; 0</p>
+<p>因此我们需要判断一下，这个图片是逆时针画的，还是顺时针画的。</p>
+<p>之前我们说过一个原理：叉乘是有方向的。</p>
+<p>通过上面的原理可以知道：在二维多边形中，通过叉乘求出的多边形的面积是有正负之分的。</p>
+<p>通过这个多边形的面积的正负，便可以判断图片是逆时针画的，还是顺时针画的。</p>
+<p>对于多边形求面积的具体推导过程，我就不细说了，因为细说我至少得说一个小时。</p>
+<p>大家先自己理解，要是理解不了，我再单独给大家引一章出来。</p>
+<p>接下来咱们通过代码说一下其具体实现过程。</p>
+<p>1.先封装一个按逆时针获取图片中两个三角形的方法，以便复用</p>
+<pre><code class="language-js">function getTriangles() {
+    return [
+        [
+            { x: vertices[0], y: vertices[1] },
+            { x: vertices[2], y: vertices[3] },
+            { x: vertices[4], y: vertices[5] },
+        ],
+        [
+            { x: vertices[4], y: vertices[5] },
+            { x: vertices[2], y: vertices[3] },
+            { x: vertices[6], y: vertices[7] },
+        ]
+    ]
+}
+</code></pre>
+<p>2.再封装一个获取面积的方法</p>
+<pre><code class="language-js">function getArea() {
+    const [t1, t2] = getTriangles()
+    return cross(t1) + cross(t2)
+}
+</code></pre>
+<p>上面所求的面积实际上是图片面积的两倍，不过这都无所谓，我只需要面积的正负。</p>
+<p>3.声明面积变量</p>
+<pre><code class="language-js">// 面积
+let area = getArea()
+</code></pre>
+<p>4.在判断点位是否在三角形中的时候，乘上面积</p>
+<pre><code class="language-js">function inTriangle(p0, triangle) {
+    let bool = true;
+    for (let i = 0; i &lt; 3; i++) {
+        const j = (i + 1) % 3;
+        const [p1, p2] = [triangle[i], triangle[j]];
+        if (area * cross([p0, p1, p2]) &lt; 0) {
+            bool = false;
+            break
+        }
+    }
+    return bool;
+}
+</code></pre>
+<p>5.面积需要随顶点数据的格式化同步更新</p>
+<pre><code class="language-js">function formatVertices() {
+    for (let i = 0; i &lt; vertices.length; i += 2) {
+        const p = new Vector3(vertices[i], vertices[i + 1], 0)
+        .applyMatrix4(mm)
+        vertices[i] = p.x
+        vertices[i + 1] = p.y
+    }
+    area = getArea()
+    geo.setData('a_Position', {
+        array: vertices
+    })
+    geoOut.setData('a_Position', {
+        array: getVerticesOut()
+    })
+}
+</code></pre>
+<h3 id="4-保留初始点位">4-保留初始点位</h3>
+<p>我之前在变换图片时，其实还有一处瑕疵，那就是无法保留初始点位。</p>
+<p>初始点位与浮点数进行多次运算，容易引起数据失真。</p>
+<p>当然，若变换次数不多，肉眼是很难发现失真的。</p>
+<p>对于上面的问题，我们是可以通过保留初始点位来解决的。</p>
+<p>接下来咱们说一下其实现思路。</p>
+<h4 id="4-1-实现思路">4-1-实现思路</h4>
+<p>已知：图片img</p>
+<p>求：基于图片的左上角点P变换图片，且保留图片初始点位的方法</p>
+<p>解：</p>
+<p>1.搭建矩阵</p>
+<ul>
+<li>把图片装画框里，画框的本地矩阵是mh</li>
+<li>把画框装饭盒里，饭盒的本地矩阵是mi</li>
+<li>把饭盒装冰箱里，冰箱的本地矩阵是mb</li>
+</ul>
+<p>2.设置变换基点：</p>
+<ul>
+<li>mi-P</li>
+<li>mb+P</li>
+</ul>
+<p>3.变换冰箱的本地矩阵mb</p>
+<p>4.在第二次变换时，将所有变换数据合入画框mh中</p>
+<p>5.渲染时的模型矩阵：</p>
+<pre><code class="language-js">mb*mi*mh
+</code></pre>
+<h4 id="4-2-代码实现">4-2-代码实现</h4>
+<p>在之前代码的基础上进行修改。</p>
+<p>1.声明必备数据</p>
+<pre><code class="language-js">// 图片初始顶点
+const verticesBasic = new Float32Array([
+    -hw, hh,
+    -hw, -hh,
+    hw, hh,
+    hw, -hh,
+])
+// 图片顶点的世界位
+const vertices = Float32Array.from(verticesBasic)
+// 画框本地矩阵
+const mh = new Matrix4()
+</code></pre>
+<p>2.将图片和图片外框的顶点数据写死，之后在变换的时候无需修改初始点位，直接修改模型矩阵即可。</p>
+<pre><code class="language-js">geoOut = new Geo({
+    data: {
+        a_Position: {
+            array: new Float32Array([
+                verticesBasic[0], verticesBasic[1],
+                verticesBasic[2], verticesBasic[3],
+                verticesBasic[6], verticesBasic[7],
+                verticesBasic[4], verticesBasic[5],
+            ]),
+            size: 2
+        },
+    }
+})
+……
+geo = new Geo({
+    data: {
+        a_Position: {
+            array: verticesBasic,
+            size: 2
+        },
+        a_Pin: {
+            array: new Float32Array([0, 1,0, 0,1, 1,1, 0,]),
+            size: 2
+        }
+    }
+})
+</code></pre>
+<p>3.在格式化顶点数据的方法里，已经无需更新几何体的顶点数据，只需要获取图片顶点的世界位即可。</p>
+<pre><code class="language-js">function formatVertices() {
+    mh.copy(mm.clone().multiply(mh))
+    for (let i = 0; i &lt; verticesBasic.length; i += 2) {
+        const p = new Vector3(verticesBasic[i], verticesBasic[i + 1], 0)
+        .applyMatrix4(mh)
+        vertices[i] = p.x
+        vertices[i + 1] = p.y
+    }
+    area = getArea()
+}
+</code></pre>
+<p>4.在渲染方法里计算模型矩阵的时候，再乘上画框的本地矩阵</p>
+<pre><code class="language-js">function render() {
+    mm.copy(getModelMatrix())
+    const { elements } = mm.clone().multiply(mh)
+    mat.setData('u_ModelMatrix', {
+        value: elements
+    })
+    matOut.setData('u_ModelMatrix', {
+        value: elements
+    })
+    scence.draw()
+}
+</code></pre>
+<p>关于鼠标对图像的变换我们就说到这。</p>
+<p>虽然我们在这里是拿二维图片举的例子，然而其实现思想都是按三维走的，就比如模型矩阵的运算。</p>
+<p>通过上面的例子，大家可以知道修改模型的两种方式：</p>
+<ul>
+<li>直接修改构成模型的初始点位</li>
+<li>修改模型矩阵</li>
+</ul>
+<p>当然，上面的操作最终都是在移动模型的初始点位，只是其应用场景会有所不同。</p>
+<p>前者适合对模型的局部顶点进行修改，就比如对图片的某一个顶点进行拉扯。</p>
+<p>后者适合对模型的所有顶点统一变换。</p>
+<p>大家理解了这两种方式的差异，也就知道了在three.js 里什么时候要修改BufferGeometry对象里的顶点，什么时候修改Object3D对象的本地矩阵。</p>
+<h3 id="扩展：展望浏览器3d图形的方向">扩展：展望浏览器3D图形的方向</h3>
+<p>自2000年后，随着Direct3D 的日益壮大，OpenGL 已经逐渐失去了曾经的辉煌，虽然 2009  年后，OpenGL 陆续从3.1发布到了现在的4.5。</p>
+<p>2011年，基于OpenGL 标准发布的WebGL成为了OpenGL 的一大亮点，WebGL至今在浏览器3d图形始终是一家独大，不可替代。</p>
+<p>然而，成也萧何败也萧何，  WebGL的发展受制于OpenGL 的很多历史遗留问题。</p>
+<p>随着webGPU的出现，WebGL在未来被webGPU替代已经成为了必然。</p>
+<p>因此，我自己做个简单预测：</p>
+<ul>
+<li>至少5年内，WebGL不会被webGPU替代。</li>
+<li>就算所有浏览器都兼容webGPU了，WebGL 也不会在短期内被浏览器屏蔽。</li>
+<li>webGPU 生态的形成需要很长的时间，从webgl至今10年的慢热过程，能看出一二。</li>
+</ul>
+<p>基于WebGL的现状，我们需要将更多的重心放在图形学，因为当我们图形学扎实了，无论语言规则如何去变，我们都可以稳住阵脚，到时无非就是再学一遍api。</p>
+<p>如果大家在考虑为以后的中年危机押注，在我看来，图形学就是一个不错的选择，其次才是three.js、Babylon.js 之类的源码，最后在日常生活中再一点点的练习和积累一下艺术和审美能力。</p>
+</article> <div id="weixin" style=""><div class="text-center"><img width="300px" src="./进入三维世界-04_files/weixin.jpg" alt="微信"></div> <div class="text-center">
+                    最近忙webgl，没建评论区，有问题微信聊
+                </div></div></div></div>
+    <script src="./进入三维世界-04_files/marked.js.下载"></script>
+    <script src="./进入三维世界-04_files/vue.js.下载"></script>
+    <script>
+        let urlParam=getUrlParam();
+        const app = new Vue({
+            el: '#app',
+            data: {
+                title: urlParam.title,
+                md:'loading……',
+                loaded:false
+            },
+            created(){
+                getMd().then(md=>{
+                    this.md=md;
+                    this.loaded=true;
+                })
+            },
+        })
+        /*抓取md文件*/
+        function getMd(){
+            const url='https://blog-mds.oss-cn-beijing.aliyuncs.com/'+urlParam.ossName;
+            return fetch(url)
+                .then(res=>res.text())
+                .then(data=>{
+                    return marked(data);
+                })
+        }
+        /*获取url参数*/
+        function getUrlParam(){
+            let {search}=window.location;
+            search=search.slice(1,search.length);
+            search=search.split('&');
+            const obj={};
+            search.forEach(ele=>{
+                let [key,val]=ele.split('=');
+                obj[key]=decodeURIComponent(val);
+            })
+            return obj;
+        }
+    </script>
+
+
+</body><div></div></html>

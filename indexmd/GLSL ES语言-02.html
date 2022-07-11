@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<!-- saved from url=(0107)http://yxyy.name/blog/md.html?ossName=16276521220868337090116906205.md&title=GLSL%20ES%E8%AF%AD%E8%A8%80-02 -->
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>李伟的博客</title>
+    <link rel="Shortcut Icon" href="https://yxyy-img.oss-cn-shanghai.aliyuncs.com/favicon.ico" type="image/x-icon">
+    <link rel="stylesheet" type="text/css" href="./GLSL ES语言-02_files/com.css">
+    <link rel="stylesheet" type="text/css" href="./GLSL ES语言-02_files/github-markdown.css">
+    <link rel="stylesheet" type="text/css" href="./GLSL ES语言-02_files/md.css">
+</head>
+<body>
+    <div id="app"><h1 class="text-center page-title">GLSL ES语言-02</h1> <div class="container"><article class="markdown-body"><h2 id="第十五章-渐变">第十五章 渐变</h2>
+<h3 id="1-渐变的画布">1-渐变的画布</h3>
+<p>接下来我们画一个渐变的画布，其步骤如下：</p>
+<p>1.绘制充满canvas的矩形，并向片元着色传递canvas画布的尺寸。</p>
+<pre><code class="language-js">const source = new Float32Array([
+    -1, 1,
+    -1, -1,
+    1, 1,
+    1, -1
+]);
+
+const rect = new Poly({
+    gl,
+    source,
+    type: 'TRIANGLE_STRIP',
+    attributes: {
+        a_Position: {
+            size: 2,
+            index: 0
+        }
+    },
+    uniforms: {
+        u_CanvasSize: {
+            type: 'uniform2fv',
+            value: [canvas.width, canvas.height]
+        }
+    }
+})
+
+gl.clear(gl.COLOR_BUFFER_BIT);
+rect.draw()
+</code></pre>
+<p>上面的Poly 对象咱们之前在纹理部分已经说过。</p>
+<p>a_Position 是attribute类型的顶点位置。</p>
+<p>u_CanvasSize 是uniform类型的画布尺寸。</p>
+<p>2.顶点着色器</p>
+<pre><code class="language-html">&lt;script id="vertexShader" type="x-shader/x-vertex"&gt;
+    attribute vec4 a_Position;
+    void main(){
+        gl_Position=a_Position;
+    }
+&lt;/script&gt;
+</code></pre>
+<p>3.片元着色器</p>
+<pre><code class="language-html">&lt;script id="fragmentShader" type="x-shader/x-fragment"&gt;
+    precision mediump float;
+    uniform vec2 u_CanvasSize;
+    void main(){
+      gl_FragColor=vec4(
+        gl_FragCoord.x/u_CanvasSize.x,
+        gl_FragCoord.y/u_CanvasSize.y,
+        0.8,
+        1
+      );
+    }
+&lt;/script&gt;
+</code></pre>
+<p>上面的gl_FragCoord是当前片元在canvas 画布中的像素位，其坐标系和canvas画布的坐标系类似，其坐标基底的两个分量都是一个像素的宽和高。</p>
+<p>只不过FragCoord 坐标原点在左下角，y轴朝上，效果如下：</p>
+<p><img src="./GLSL ES语言-02_files/16276521220869817754762234132.jpg" alt="坐标系"></p>
+<h3 id="2-线性渐变对象">2-线性渐变对象</h3>
+<p>玩过canvas 2d 渐变的同学应该知道，我们在绘制线性渐变图形的时候，需要先建立一个线性渐变对象。</p>
+<p>线性渐变对象具备一个起点、一个终点，用于限定渐变范围。</p>
+<p>线性渐变对象中具备多个渐变节点，每个渐变节点都有以下属性：</p>
+<ul>
+<li>节点颜色</li>
+<li>节点位置 ，[0,1] 之间</li>
+</ul>
+<p>我们这里简化一下，就给起点和终点位置设置两个颜色节点。</p>
+<p>1.建立矩形对象</p>
+<pre><code class="language-js">const rect = new Poly({
+    gl,
+    source,
+    type: 'TRIANGLE_STRIP',
+    attributes: {
+        a_Position: {
+            size: 2,
+            index: 0
+        }
+    },
+    uniforms: {
+        u_Start: {
+            type: 'uniform2fv',
+            value: [canvas.width * 0.25, canvas.height * 0.75]
+        },
+        u_End: {
+            type: 'uniform2fv',
+            value: [canvas.width * 0.75, canvas.height * 0.25]
+        },
+        u_Color0: {
+            type: 'uniform4fv',
+            value: [1, 0, 0, 1]
+        },
+        u_Color1: {
+            type: 'uniform4fv',
+            value: [1, 1, 0, 1]
+        },
+    }
+})
+</code></pre>
+<p>uniforms中变量的意思：</p>
+<ul>
+<li>u_Start 起始点</li>
+<li>u_End 终点</li>
+<li>u_Color0 对应起点的颜色</li>
+<li>u_Color1 对应终点的颜色</li>
+</ul>
+<p>2.片元着色器</p>
+<pre><code class="language-java">precision mediump float;
+
+uniform vec4 u_Color0;
+uniform vec4 u_Color1;
+vec4 c01=u_Color1-u_Color0;
+
+uniform vec2 u_Start;
+uniform vec2 u_End;
+vec2 se=u_End-u_Start;
+float seLen=length(se);
+vec2 normal=normalize(se);
+
+void main(){
+    vec2 sf=vec2(gl_FragCoord)-u_Start;
+    float fsLen=clamp(dot(sf,normal),0.0,seLen);
+    float ratio=fsLen/seLen;
+    gl_FragColor=u_Color0+c01*ratio;
+}
+</code></pre>
+<p>效果如下：</p>
+<p><img src="./GLSL ES语言-02_files/16276521220868743690302789098.png" alt="image-20210516225154552"></p>
+<p>上面变量的示意如下：</p>
+<p><img src="./GLSL ES语言-02_files/16276521220867400397817456115.png" alt="image-20210516212044130"></p>
+<p>其原理就是获取当前片元在起点u_Start和终点u_End间的距离比ratio，然后将此距离比作为颜色比，获取其在起始颜色u_Color0和结束颜色u_Color1间的颜色值。</p>
+<h3 id="3-多节点线性渐变">3-多节点线性渐变</h3>
+<p>我们上面说了，线性渐变对象中具备多个渐变节点，每个渐变节点都有以下属性：</p>
+<ul>
+<li>节点颜色</li>
+<li>节点位置 ，[0,1] 之间</li>
+</ul>
+<p>接下来咱们就来架构一下这个逻辑。</p>
+<p>我们先把节点数据在片元着色器里写死，后面再考虑用js 传递数据。</p>
+<p>1.声明渐变的基础数据。</p>
+<pre><code class="language-js">//起始位
+vec2 u_Start=vec2(100,100);
+//结束位
+vec2 u_End=vec2(700,700);
+//节点颜色集合
+vec4 colors[3];
+//节点位置集合
+float ratios[3];
+</code></pre>
+<p>2.基于渐变起点和结束点计算向量、向量长度和单位向量。</p>
+<pre><code class="language-js">//终点减起点向量
+vec2 se=u_End-u_Start;
+//长度
+float seLen=length(se);
+//单位向量
+vec2 se1=normalize(se);
+</code></pre>
+<p>3.在main函数体中填充颜色集合和节点位置集合，然后获取片元颜色。</p>
+<pre><code class="language-js">void main(){
+    colors[0]=vec4(1,0,0,1);
+    colors[1]=vec4(1,1,0,1);
+    colors[2]=vec4(0,1,0,1);
+    ratios[0]=0.0;
+    ratios[1]=0.5;
+    ratios[2]=1.0;
+    gl_FragColor=getColor(colors,ratios);
+}
+</code></pre>
+<p>4.建立基于节点颜色集合和节点位置集合获取颜色的方法。</p>
+<pre><code class="language-js">//获取片元颜色
+vec4 getColor(vec4 colors[3],float ratios[3]){
+    //片元颜色
+    vec4 color=vec4(1);
+    //当前片元减起始片元的向量
+    vec2 sf=vec2(gl_FragCoord)-u_Start;
+    //当前片元在se上的投影长度
+    float fsLen=clamp(dot(sf,se1),0.0,seLen);
+    //长度比
+    float ratio=clamp(fsLen/seLen,ratios[0],ratios[3-1]);
+    //第一个比值
+    float ratio1=ratios[0];
+    //第一个颜色
+    vec4 color1=colors[0];
+    //遍历节点，按比值取色
+    for(int i=1;i&lt;3;i++){
+        //第二个比值
+        float ratio2=ratios[i];
+        //第二个颜色
+        vec4 color2=colors[i];
+        if(ratio&gt;=ratio1&amp;&amp;ratio&lt;=ratio2){
+            //一段颜色的差值
+            vec4 color2_1=color2-color1;
+            //当前比值在一段比值中的比值
+            float ratioInRatio=(ratio-ratio1)/(ratio2-ratio1);
+            //当前比值在当前颜色段中所对应的颜色
+            color=color1+color2_1*ratioInRatio;
+            break;
+        }
+        ratio1=ratio2;
+        color1=color2;
+    }
+    return color;
+}
+</code></pre>
+<p>效果如下：</p>
+<p><img src="./GLSL ES语言-02_files/16276521220863230179868685552.png" alt="image-20210525160002651"></p>
+<p>接下咱们说一下如何用js向片元着色器传递渐变数据。</p>
+<h3 id="4-用js向片元着色器传递渐变数据">4-用js向片元着色器传递渐变数据</h3>
+<p>js只能向着色器传递有限类型的数据，它无法传递任意长度的数组、字符串、json对象等。</p>
+<p>比如无法传递任意长度的数组、字符串、json对象等。</p>
+<p>所以我就把渐变节点装进了一个四维矩阵中，从而拼8个渐变节点出来，这对于一般的渐变操作是够的。</p>
+<p>渐变结构如下：</p>
+<pre><code class="language-js">[
+    123000120, 255000,
+    255000000, 255077,
+    255255000, 255128,
+    255000, 255178,
+    200, 255255,
+    -1, -1,
+    -1, -1,
+    -1, -1
+]
+[
+    123000120, 255000, 255000000, 255077,
+    255255000, 255128, 255000, 255178,
+    200, 255255,       -1, -1,
+    -1, -1,            -1, -1
+]
+</code></pre>
+<ul>
+<li><p>每两个数字构成一个渐变节点</p>
+<p>如：123000120, 255000</p>
+</li>
+<li><p>第一列对应颜色节点的rgb数据</p>
+<p>如：123000120 对应的rgb数据分别是123,0,120 </p>
+</li>
+<li><p>第二列对应颜色节点的a数据和位置数据</p>
+<p>如：255000 对应的a值是255，节点位置为0</p>
+</li>
+</ul>
+<p>接下来咱们看一下代码实现。</p>
+<p>1.在矩形面中写入节点数据 u_ColorStops</p>
+<pre><code class="language-js">const rect = new Poly({
+    gl,
+    source,
+    type: 'TRIANGLE_STRIP',
+    attributes: {
+        a_Position: {
+            size: 2,
+            index: 0
+        }
+    },
+    uniforms: {
+        u_Start: {
+            type: 'uniform2fv',
+            value: [0, 0]
+        },
+        u_End: {
+            type: 'uniform2fv',
+            value: [canvas.width, canvas.height]
+        },
+        u_ColorStops: {
+            type: 'uniformMatrix4fv',
+            value: [
+                123000120, 255000,
+                255000000, 255077,
+                255255000, 255128,
+                255000, 255178,
+                200, 255255,
+                -1, -1,
+                -1, -1,
+                -1, -1
+            ]
+        }
+    }
+})
+</code></pre>
+<p>2.在片元着色器中写入相应的uniform变量</p>
+<pre><code class="language-js">//起始位
+uniform vec2 u_Start;
+//结束位
+uniform vec2 u_End;
+//四阶矩阵
+uniform mat4 u_ColorStops;
+//终点减起点向量
+vec2 se=u_End-u_Start;
+//长度
+float seLen=length(se);
+//单位向量
+vec2 se1=normalize(se);
+</code></pre>
+<p>3.在main函数内，声明节点的颜色集合和位置集合。</p>
+<p>通过setColorStops()方法将u_ColorStops 中的数据解析入节点颜色集合和位置集合。</p>
+<p>通过getColor()方法获取片元颜色。</p>
+<pre><code class="language-js">void main(){
+    //节点颜色集合
+    vec4 colors[8];
+    //节点位置集合
+    float ratios[8];
+    //基于四维矩阵解析节点集合
+    setColorStops(colors,ratios);
+    //片元颜色
+    gl_FragColor=getColor(colors,ratios);
+}
+</code></pre>
+<ul>
+<li>setColorStops() 将u_ColorStops 中的数据解析入节点颜色集合和位置集合。</li>
+</ul>
+<pre><code class="language-js">void setColorStops(out vec4 colors[8],out float ratios[8]){
+    //节点颜色数据
+    vec4 colorSource=vec4(1);
+    //节点位置数据
+    float ratioSource=1.0;
+    //遍历四维矩阵的
+    for (int y=0;y&lt;4;y++){
+        for (int x=0;x&lt;2;x++){
+            int rgb=int(u_ColorStops[y][x*2]);
+            int ar=int(u_ColorStops[y][x*2+1]);
+            if(rgb&gt;0){
+                setColorStop(rgb,ar,colorSource,ratioSource);
+            }
+            colors[y*2+x]=colorSource;
+            ratios[y*2+x]=ratioSource;
+        }
+    }
+}
+</code></pre>
+<ul>
+<li>setColorStop() 解析节点数据</li>
+</ul>
+<pre><code class="language-js">void setColorStop(int rgb,int ar,out vec4 color,out float ratio){
+    int rc=rgb/1000000;
+    int gc=(rgb-rc*1000000)/1000;
+    int bc=rgb-int(rgb/1000)*1000;
+    int ac=ar/1000;
+    int ratioI=ar-ac*1000;
+    color=vec4(float(rc),float(gc),float(bc),float(ac))/255.0;
+    ratio=float(ratioI)/255.0;
+}
+</code></pre>
+<p>3.getColor() 方法和之前一样。</p>
+<h3 id="5-优化js-中的节点数据">5-优化js 中的节点数据</h3>
+<p>若我们觉得之前节点数据的书写方式不方便，也可以换成键值对的书写方式，然后对其进行解析。</p>
+<p>1.渐变节点</p>
+<pre><code class="language-js">const colorStops = [
+    {
+        color: [123, 0, 123, 255],
+        stop: 0
+    },
+    {
+        color: [255, 0, 0, 255],
+        stop: 0.3
+    },
+    {
+        color: [255, 255, 0, 255],
+        stop: 0.5
+    },
+    {
+        color: [0, 255, 0, 255],
+        stop: 0.7
+    },
+    {
+        color: [0, 0, 200, 255],
+        stop: 1
+    },
+]
+</code></pre>
+<p>2.解析方法</p>
+<pre><code class="language-js">function parseColorStops(source) {
+    const stops = new Array(16).fill(-1);
+    source.forEach(({ color, stop }, stopInd) =&gt; {
+        let rgb = '';
+        let ar = '';
+        color.forEach((ele, ind) =&gt; {
+            const str = (ele + 1000).toString().slice(1);
+            if (ind &lt; 3) {
+                rgb += str;
+            } else {
+                ar += str;
+            }
+        })
+        ar += (Math.round(stop * 255) + 1000).toString().slice(1);
+        stops[stopInd * 2] = rgb;
+        stops[stopInd * 2 + 1] = ar;
+    })
+    return stops;
+}
+</code></pre>
+<p>3.解析键值对类型的节点数据</p>
+<pre><code class="language-js">u_ColorStops: {
+    type: 'uniformMatrix4fv',
+    value: parseColorStops(colorStops)
+}
+</code></pre>
+<h3 id="6-径向渐变">6-径向渐变</h3>
+<p>我们将之前的代码改改，便可以实现径向渐变。</p>
+<p><img src="./GLSL ES语言-02_files/162765212208610007574157761456.png" alt="image-20210525213112893"></p>
+<p>1.在矩形面中，注释终点，添加半径</p>
+<pre><code class="language-js">// u_End: {
+//   type: 'uniform2fv',
+//   value: [canvas.width, canvas.height]
+// },
+u_Radius: {
+    type: 'uniform1f',
+    value: 400
+},
+</code></pre>
+<p>2.在片元着色器中也做相应调整。</p>
+<pre><code class="language-js">//起始位
+uniform vec2 u_Start;
+//结束位
+//uniform vec2 u_End;
+//半径
+uniform float u_Radius;
+//四阶矩阵
+uniform mat4 u_ColorStops;
+//终点减起点向量
+//vec2 se=u_End-u_Start;
+//长度
+//float seLen=length(se);
+//单位向量
+//vec2 se1=normalize(se);
+</code></pre>
+<p>3.修改获取片元颜色的方法，基于极径取ratio比值。</p>
+<pre><code class="language-js">//获取片元颜色
+vec4 getColor(vec4 colors[8],float ratios[8]){
+    //片元颜色
+    vec4 color=vec4(1);
+    //当前片元减起始片元的向量
+    //vec2 sf=vec2(gl_FragCoord)-u_Start;
+    //当前片元到起始点的距离
+    float fsLen=distance(gl_FragCoord.xy,u_Start);
+    //当前片元在se上的投影长度
+    //float fsLen=clamp(dot(sf,se1),0.0,seLen);
+    //极径比
+    float ratio=clamp(fsLen/u_Radius,ratios[0],ratios[8-1]);
+    ……
+}
+</code></pre>
+<h3 id="7-极坐标渐变">7-极坐标渐变</h3>
+<p>我们将之前的代码改改，还可以实现极坐标渐变。</p>
+<p><img src="./GLSL ES语言-02_files/16276521220860250689151090584.png" alt="image-20210525223153491"></p>
+<p>1.在矩形面中，注释终点</p>
+<pre><code class="language-js">// u_End: {
+//   type: 'uniform2fv',
+//   value: [canvas.width, canvas.height]
+// },
+</code></pre>
+<p>2.在片元着色器中也做相应调整。</p>
+<pre><code class="language-js">//起始位
+uniform vec2 u_Start;
+//结束位
+//uniform vec2 u_End;
+//终点减起点向量
+//vec2 se=u_End-u_Start;
+//四阶矩阵
+uniform mat4 u_ColorStops;
+//长度
+//float seLen=length(se);
+//单位向量
+//vec2 se1=normalize(se);
+//一圈的弧度
+float pi2=radians(360.0);
+</code></pre>
+<p>3.修改获取片元颜色的方法，基于极角取ratio比值。</p>
+<pre><code class="language-js">//获取片元颜色
+vec4 getColor(vec4 colors[8],float ratios[8]){
+    //片元颜色
+    vec4 color=vec4(1);
+    //当前片元减起始片元的向量
+    vec2 sf=vec2(gl_FragCoord)-u_Start;
+    //当前片元在se上的投影长度
+    //float fsLen=clamp(dot(sf,se1),0.0,seLen);
+    //长度比
+    //float ratio=clamp(fsLen/seLen,ratios[0],ratios[8-1]);
+    //向量方向
+    float dir=atan(sf.y,sf.x);
+    if(dir&lt;0.0){
+        dir+=pi2;
+    }
+    float ratio=dir/pi2;
+    ……
+}
+</code></pre>
+<h3 id="8-三点渐变">8-三点渐变</h3>
+<p>通过径向渐变和极坐标渐变的原理，还可以实现三点渐变。</p>
+<p><img src="./GLSL ES语言-02_files/16276521220864085917695440222.jpg" alt="2"></p>
+<p>1.建立三个点</p>
+<pre><code class="language-js">//点1
+vec2 p1=vec2(200,200);
+vec4 c1=vec4(1,0,0,1);
+//点2
+vec2 p2=vec2(800,400);
+vec4 c2=vec4(0,1,0,1);
+//点3
+vec2 p3=vec2(400,800);
+vec4 c3=vec4(0,0,1,1);
+</code></pre>
+<p>p1是点位，c1是颜色。</p>
+<p>2.基于三个位置点计算相应向量</p>
+<pre><code class="language-js">vec2 v31=p1-p3;
+vec2 v32=p2-p3;
+vec2 v12=p2-p1;
+</code></pre>
+<p>3.提前算出p2和p1点位的色差</p>
+<pre><code class="language-js">vec4 c12=c2-c1;
+</code></pre>
+<p>4.提前算出一圈的弧度，以备后用</p>
+<pre><code class="language-js">float pi2=radians(360.0);
+</code></pre>
+<p>radians() 是将角度转弧度的方法，360°=π*2</p>
+<p>5.建立基于向量获取弧度的方法</p>
+<pre><code class="language-js">float getAngle(vec2 v){
+    float ang=atan(v.y,v.x);
+    if(ang&lt;0.0){
+        ang+=pi2;
+    }
+    return ang;
+}
+</code></pre>
+<p>atan() 方法可以计算一个点基于x轴正方向的弧度，此弧度的取值范围是[-π,π]，为了方便计算，我将其范围设置为[0,2π]</p>
+<p>6.获取点p1、p2和当前片元位相对于p3点的弧度。</p>
+<pre><code class="language-js">float ang31=getAngle(v31);
+float ang32=getAngle(v32);
+vec2 v3f=gl_FragCoord.xy-p3;
+float ang3f=getAngle(v3f);
+</code></pre>
+<p>7.用叉乘计算当前片元在向量v12的哪一侧</p>
+<pre><code class="language-js">vec2 v1f=gl_FragCoord.xy-p1;
+float z=v1f.x*v12.y-v1f.y*v12.x;
+</code></pre>
+<p>其原理我们之前在说三角形的时候说过，其实我们还可以这么写：</p>
+<pre><code class="language-js">vec2 v1f=gl_FragCoord.xy-p1;
+float z =cross(vec3(v1f,0),vec3(v12,0)).z;
+</code></pre>
+<p>我之前的运算实际上就是计算了两个z值为0的三维向量的叉乘结果的z值。</p>
+<p>8.当片元在向量v31和v32之间，并且当前片元在向量v12的左侧时，当前片元在△p1p2p3中，我们便可以计算片元颜色。</p>
+<pre><code class="language-js">vec4 color=vec4(0);
+if(ang3f&gt;=ang31&amp;&amp;ang3f&lt;=ang32&amp;&amp;z&lt;0.0){
+    //计算∠&lt;v3f,p3p1&gt;在∠&lt;p3p2,p3p1&gt;中的比值
+    ang3f=clamp(ang3f,ang31,ang32);
+    float angRatio=(ang3f-ang31)/(ang32-ang31);
+
+    //向量v12和向量v3f的交点位置和颜色
+    vec2 p4=p1+v12*angRatio;
+    vec4 c4=c1+c12*angRatio;
+
+    //向量p3-gl_FragCoord在向量p3p4中的长度比
+    float lenE=distance(p4,p3);
+    float lenF=length(v3f);
+    float lenRatio=lenF/lenE;
+
+    //基于长度比获取当前片元在c3、c4间的颜色
+    color=c3+(c4-c3)*lenRatio;
+}
+//片元颜色
+gl_FragColor=color;
+</code></pre>
+<p>解释一下if语法中的取色逻辑。</p>
+<p>9.计算∠&lt;v32,v3f&gt;在∠&lt;v32,v31&gt;中的比值angRatio</p>
+<pre><code class="language-js">ang3f=clamp(ang3f,ang31,ang32);
+float angRatio=(ang3f-ang31)/(ang32-ang31);
+</code></pre>
+<p>10.基于angRatio计算向量v12和向量v1f的交点位置p4和颜色c4</p>
+<pre><code class="language-js">vec2 p4=p1+v12*angRatio;
+vec4 c4=c1+c12*angRatio;
+</code></pre>
+<p>11.计算向量p3-gl_FragCoord在向量p3p4中的长度比，然后基于此比值获取当前片元在c3、c4间的颜色</p>
+<pre><code class="language-js">float lenE=distance(p4,p3);
+float lenF=length(v3f);
+float lenRatio=lenF/lenE;
+color=c3+(c4-c3)*lenRatio;
+</code></pre>
+<h2 id="第十六章-杂色">第十六章 杂色</h2>
+<h3 id="1-杂色原理">1-杂色原理</h3>
+<p><img src="./GLSL ES语言-02_files/162765212208648980797815902144.png" alt="image-20210517093900730"></p>
+<p>杂色的真谛就是通过有规律条件得到无规律的结果。</p>
+<p>有规律的条件，是片元在canvas画布中的像素位。</p>
+<p>无规律的结果，是片元的随机色值。</p>
+<p>杂色的实现思路很简单，方法也非常多。</p>
+<p>接下来我们就写一个杂色的实现方法。</p>
+<p>1.在片元着色器里建立一个基于gl_FragCoord 获取随机颜色的方法。</p>
+<pre><code class="language-js">float rand(vec2 fragCoord){
+    vec2 a= vec2(0.1234,0.5678);
+    float n= dot(fragCoord,a);
+    return fract(sin(n)*10000.0);
+}
+//sin(n)∈[-1,1]
+//sin(n)=-0.12345678
+//sin(n)*10000.0=1234.5678
+//fract(sin(n)*10000.0)=0.5678 ∈(0,1)
+</code></pre>
+<p>向量a 是随便写的一个向量，小数点后的位数要多一点。</p>
+<p>n是片元位置与向量a的点积，这么做是为了将两个已知条件，即fragCoord 的两个分量，合成一个已知条件。</p>
+<p>tan(n) 是基于n值获取[-∞,∞] 之间一个随机数，是为了把片元位的行列规律破一下。</p>
+<p>sin(n)*10000.0 是为了把小数点左移，之后通过fract() 只获取小数点后面数字，这样的结果便会更为随机。</p>
+<p>2.在主函数体中调用rand()方法</p>
+<pre><code class="language-js">void main(){
+    float f = rand(gl_FragCoord.xy);
+    gl_FragColor = vec4(f, f, f, 1);
+}
+</code></pre>
+<p>3.我们接下来对上面的向量a 进行旋转，可以实现噪波动画。</p>
+<ul>
+<li>在片元着色器中添加u_Ang 变量：</li>
+</ul>
+<pre><code class="language-html">&lt;script id="fragmentShader" type="x-shader/x-fragment"&gt;
+    precision mediump float;
+    uniform float u_Ang;
+    float s=sin(u_Ang);
+    float c=cos(u_Ang);
+    mat2 m=mat2(
+      c,s,
+      -s,c
+    );
+    float rand(vec2 fragCoord){
+      vec2 a= m*vec2(0.1234,0.5678);
+      float n= dot(fragCoord,a);
+      return fract(tan(n)*10000.0);
+    }
+    void main(){
+      float f = rand(gl_FragCoord.xy);
+      gl_FragColor = vec4(f, f, f, 1);
+    }
+&lt;/script&gt;
+</code></pre>
+<ul>
+<li>js代码</li>
+</ul>
+<pre><code class="language-js">const rect = new Poly({
+    gl,
+    source,
+    type: 'TRIANGLE_STRIP',
+    attributes: {
+        a_Position: {
+            size: 2,
+            index: 0
+        }
+    },
+    uniforms: {
+        u_Ang: {
+            type: 'uniform1f',
+            value: 0
+        }
+    }
+})
+
+let ang = 1;
+!(function ani() {
+    ang++;
+    rect.uniforms.u_Ang.value = ang;
+    rect.updateUniform()
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    rect.draw()
+    requestAnimationFrame(ani)
+})()
+</code></pre>
+<p>效果如下：</p>
+<p><img src="./GLSL ES语言-02_files/1627652122086004267798474557827.gif" alt="1-1621245161335"></p>
+<p>后面我们也可以自己借此玩一下肌理。</p>
+<h3 id="2-肌理">2-肌理</h3>
+<p>肌理是美学中必不可少的一部分，不同的肌理有着不同的视觉体验。</p>
+<p>我们可以把之前的代码做一下修改。</p>
+<ul>
+<li>把10000.0变成10.0：</li>
+</ul>
+<pre><code class="language-js">vec2 a= vec2(0.1234,0.5678);
+float n= dot(fragCoord,a);
+return fract(tan(n)*10.0);
+</code></pre>
+<p>效果如下：</p>
+<p><img src="./GLSL ES语言-02_files/16276521220866889832107477594.png" alt="image-20210517101842454"></p>
+<p>有韵律的杂色。</p>
+<ul>
+<li>或者直接把10.0 也去掉</li>
+</ul>
+<pre><code class="language-js">vec2 a= vec2(0.1234,0.5678);
+float n= dot(fragCoord,a);
+return fract(tan(n));
+</code></pre>
+<p>效果如下：</p>
+<p><img src="./GLSL ES语言-02_files/16276521220868992421828186314.png" alt="image-20210517102651076"></p>
+<ul>
+<li>把a改一下</li>
+</ul>
+<pre><code class="language-js">vec2 a= vec2(0.111,0.11);
+float n= dot(fragCoord,a);
+return fract(tan(n));
+</code></pre>
+<p>效果如下：</p>
+<p><img src="./GLSL ES语言-02_files/16276521220868975830914526028.png" alt="image-20210517103044449"></p>
+<ul>
+<li>再把a改一下</li>
+</ul>
+<pre><code class="language-js">vec2 a= vec2(0.111,0.111);
+float n= dot(fragCoord,a);
+return fract(tan(n));
+</code></pre>
+<p>这便是拉丝的效果：</p>
+<p><img src="./GLSL ES语言-02_files/16276521220868223230622233992.png" alt="image-20210517103218558"></p>
+<ul>
+<li>或者还可以这样</li>
+</ul>
+<pre><code class="language-js">float rand(vec2 fragCoord){
+    vec2 v=fragCoord-u_CanvasSize/2.0;
+    return fract(
+        atan(v.x,v.y)*500.0
+    );
+}
+</code></pre>
+<p><img src="./GLSL ES语言-02_files/16276521220866231714080857955.png" alt="image-20210517155336738"></p>
+<p>杂色咱们就先玩到这，接下来咱们说一下极坐标。</p>
+</article> <div id="weixin" style=""><div class="text-center"><img width="300px" src="./GLSL ES语言-02_files/weixin.jpg" alt="微信"></div> <div class="text-center">
+                    最近忙webgl，没建评论区，有问题微信聊
+                </div></div></div></div>
+    <script src="./GLSL ES语言-02_files/marked.js.下载"></script>
+    <script src="./GLSL ES语言-02_files/vue.js.下载"></script>
+    <script>
+        let urlParam=getUrlParam();
+        const app = new Vue({
+            el: '#app',
+            data: {
+                title: urlParam.title,
+                md:'loading……',
+                loaded:false
+            },
+            created(){
+                getMd().then(md=>{
+                    this.md=md;
+                    this.loaded=true;
+                })
+            },
+        })
+        /*抓取md文件*/
+        function getMd(){
+            const url='https://blog-mds.oss-cn-beijing.aliyuncs.com/'+urlParam.ossName;
+            return fetch(url)
+                .then(res=>res.text())
+                .then(data=>{
+                    return marked(data);
+                })
+        }
+        /*获取url参数*/
+        function getUrlParam(){
+            let {search}=window.location;
+            search=search.slice(1,search.length);
+            search=search.split('&');
+            const obj={};
+            search.forEach(ele=>{
+                let [key,val]=ele.split('=');
+                obj[key]=decodeURIComponent(val);
+            })
+            return obj;
+        }
+    </script>
+
+
+</body><div></div></html>

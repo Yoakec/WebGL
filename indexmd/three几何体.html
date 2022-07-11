@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<!-- saved from url=(0110)http://yxyy.name/blog/md.html?ossName=165380930523734358973338079246.md&title=three%E5%87%A0%E4%BD%95%E4%BD%93 -->
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>李伟的博客</title>
+    <link rel="Shortcut Icon" href="https://yxyy-img.oss-cn-shanghai.aliyuncs.com/favicon.ico" type="image/x-icon">
+    <link rel="stylesheet" type="text/css" href="./three几何体_files/com.css">
+    <link rel="stylesheet" type="text/css" href="./three几何体_files/github-markdown.css">
+    <link rel="stylesheet" type="text/css" href="./three几何体_files/md.css">
+</head>
+<body>
+    <div id="app"><h1 class="text-center page-title">three几何体</h1> <div class="container"><article class="markdown-body"><h2 id="前言">前言</h2>
+<h3 id="课件地址">课件地址</h3>
+<p><a href="https://github.com/buglas/threejs-lesson">https://github.com/buglas/threejs-lesson</a></p>
+<h3 id="课堂目标">课堂目标</h3>
+<ul>
+<li>认识three.js 提供的内置几何体</li>
+<li>自定义几何体</li>
+</ul>
+<h3 id="知识点">知识点</h3>
+<ul>
+<li>内置几何体</li>
+<li>自定义几何体</li>
+<li>几何体顶点数据的读写</li>
+</ul>
+<h2 id="1-内置几何体">1-内置几何体</h2>
+<p>three.js 的内置几何体大致可分成以下几类：</p>
+<ul>
+<li>二维几何体<ul>
+<li>PlaneGeometry 矩形平面</li>
+<li>CircleGeometry 圆形平面</li>
+<li>RingGeometry 圆环平面</li>
+<li>ShapeGeometry 二维图形</li>
+</ul>
+</li>
+<li>三维几何体<ul>
+<li>BoxGeometry 立方体</li>
+<li>TetrahedronGeometry 四面体</li>
+<li>OctahedronGeometry 八面体</li>
+<li>DodecahedronGeometry  十二面体 </li>
+<li>IcosahedronGeometry 二十面体</li>
+<li>PolyhedronGeometry 多面体</li>
+<li>SphereGeometry 球体</li>
+<li>ConeGeometry  圆锥</li>
+<li>CylinderGeometry 圆柱</li>
+<li>TorusGeometry 三维圆环</li>
+<li>TorusKnotGeometry 扭结</li>
+</ul>
+</li>
+<li>路径合成几何体<ul>
+<li>TubeGeometry 管道</li>
+<li>LatheGeometry 车削</li>
+<li>ExtrudeGeometry 挤压</li>
+</ul>
+</li>
+<li>线性几何体<ul>
+<li>WireframeGeometry 网格几何体</li>
+<li>EdgesGeometry 边缘几何体</li>
+</ul>
+</li>
+</ul>
+<p>接下来，咱们详细说一下其绘制方法。</p>
+<h3 id="1-1-二维几何体">1-1-二维几何体</h3>
+<h4 id="planegeometry-矩形平面">PlaneGeometry 矩形平面</h4>
+<p><img src="./three几何体_files/16521966256148476080257418832.png" alt="image-20220504000008737"></p>
+<p>PlaneGeometry(width : Float, height : Float, widthSegments : Integer, heightSegments : Integer)</p>
+<ul>
+<li>width — 平面沿着X轴的宽度。默认值是1。</li>
+<li>height — 平面沿着Y轴的高度。默认值是1。</li>
+<li>widthSegments — （可选）平面的宽度分段数，默认值是1。</li>
+<li>heightSegments — （可选）平面的高度分段数，默认值是1。</li>
+</ul>
+<p>代码实例：</p>
+<p>1.先参照上一篇的项目架构一个一个react+ts 项目，详情参见源码。</p>
+<p>2.建立一个Stage对象，把渲染器、场景、相机、轨道控制器和响应式布局都封装进去。这样在写例子的时候会比较方便、整洁。</p>
+<ul>
+<li>src/component/Stage.ts</li>
+</ul>
+<pre><code class="language-tsx">import { PerspectiveCamera, Scene, WebGLRenderer } from "three";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
+
+export default class Stage {
+  // 渲染器
+  renderer: WebGLRenderer;
+  // 场景
+  scene: Scene;
+  // 相机
+  camera: PerspectiveCamera;
+  // 轨道控制器
+  controls: OrbitControls;
+  // 渲染之前
+  beforeRender = (time: number = 0) =&gt; {};
+
+  // 初始化场景
+  constructor(x: number = 0, y: number = 0, z: number = 12) {
+    this.scene = new Scene();
+    this.renderer = new WebGLRenderer({ antialias: true });
+    const { clientWidth, clientHeight } = this.renderer.domElement;
+    this.renderer.setSize(clientWidth * devicePixelRatio, clientHeight * devicePixelRatio, false);
+    this.camera = new PerspectiveCamera(45, clientWidth / clientHeight, 0.1, 1000);
+    this.camera.position.set(x, y, z);
+    this.camera.lookAt(0, 0, 0);
+    this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+  }
+
+  // 响应式布局
+  responsive() {
+    const { renderer, camera } = this;
+    if (this.resizeRendererToDisplaySize(renderer)) {
+      const { clientWidth, clientHeight } = renderer.domElement;
+      camera.aspect = clientWidth / clientHeight;
+      camera.updateProjectionMatrix();
+    }
+  }
+
+  // 重置渲染尺寸
+  resizeRendererToDisplaySize(renderer: WebGLRenderer): boolean {
+    const { width, height, clientWidth, clientHeight } = renderer.domElement;
+    const [w, h] = [clientWidth * devicePixelRatio, clientHeight * devicePixelRatio];
+    const needResize = width !== w || height !== h;
+    if (needResize) {
+      renderer.setSize(w, h, false);
+    }
+    return needResize;
+  }
+
+  // 连续渲染
+  animate(time = 0) {
+    this.responsive();
+    this.beforeRender(time);
+    this.renderer.render(this.scene, this.camera);
+    requestAnimationFrame((time) =&gt; {
+      this.animate(time);
+    });
+  }
+}
+</code></pre>
+<p>3.绘制矩形平面。</p>
+<ul>
+<li>src/component/Plane.ts</li>
+</ul>
+<pre><code class="language-tsx">import React, { useRef, useEffect } from "react";
+import {
+  Mesh,
+  MeshBasicMaterial,
+  MeshNormalMaterial,
+  PlaneGeometry,
+} from "three";
+import Stage from "../component/Stage";
+import "./fullScreen.css";
+
+const stage = new Stage();
+const { scene, renderer } = stage;
+
+const geometry = new PlaneGeometry();
+
+{
+  const material = new MeshNormalMaterial({
+    polygonOffset: true,
+    polygonOffsetFactor: 1,
+    polygonOffsetUnits: 1,
+  });
+  const mesh = new Mesh(geometry, material);
+  scene.add(mesh);
+}
+{
+  const material = new MeshBasicMaterial({
+    wireframe: true,
+  });
+  const mesh = new Mesh(geometry, material);
+  scene.add(mesh);
+}
+
+const Plane: React.FC = (): JSX.Element =&gt; {
+  const divRef = useRef&lt;HTMLDivElement&gt;(null);
+  useEffect(() =&gt; {
+    const { current } = divRef;
+    if (current) {
+      current.innerHTML = "";
+      current.append(renderer.domElement);
+      stage.animate();
+    }
+  }, []);
+  return &lt;div ref={divRef} className="canvasWrapper"&gt;&lt;/div&gt;;
+};
+
+export default Plane;
+</code></pre>
+<h4 id="circlegeometry-圆形平面">CircleGeometry 圆形平面</h4>
+<p><img src="./three几何体_files/165219662561421407285469826998.png" alt="image-20220504000121351"></p>
+<p>CircleGeometry(radius : Float, segments : Integer, thetaStart : Float, thetaLength : Float)</p>
+<ul>
+<li>radius — 圆形的半径，默认值为1</li>
+<li>segments — 分段（三角面）的数量，最小值为3，默认值为8。</li>
+<li>thetaStart — 第一个分段的起始角度，默认为0。（three o'clock position）</li>
+<li>thetaLength — 圆形扇区的中心角，通常被称为“θ”（西塔）。默认值是2*Pi，这使其成为一个完整的圆。</li>
+</ul>
+<h4 id="ringgeometry-圆环平面">RingGeometry 圆环平面</h4>
+<p><img src="./three几何体_files/16521966256145120759518589724.png" alt="image-20220504000228776"></p>
+<p>RingGeometry(innerRadius : Float, outerRadius : Float, thetaSegments : Integer, phiSegments : Integer, thetaStart : Float, thetaLength : Float)</p>
+<ul>
+<li>innerRadius — 内部半径，默认值为0.5。</li>
+<li>outerRadius — 外部半径，默认值为1。</li>
+<li>thetaSegments — 圆环的分段数。这个值越大，圆环就越圆。最小值为3，默认值为8。</li>
+<li>phiSegments — 最小值为1，默认值为8。</li>
+<li>thetaStart — 起始角度，默认值为0。</li>
+<li>thetaLength — 圆心角，默认值为Math.PI * 2。</li>
+</ul>
+<h4 id="shapegeometry-二维图形">ShapeGeometry 二维图形</h4>
+<p>ShapeGeometry(shapes : Array, curveSegments : Integer)</p>
+<ul>
+<li>shapes — 一个单独的shape，或者一个包含形状的Array。</li>
+<li>curveSegments - Integer - 每一个形状的分段数，默认值为12。</li>
+</ul>
+<p>代码示例：</p>
+<pre><code class="language-js">const shape = new Shape();
+shape.moveTo(0, 0);
+shape.bezierCurveTo(1, 1, -1, 1, 0, 0);
+const geometry = new ShapeGeometry(shape);
+</code></pre>
+<p>效果如下：</p>
+<p><img src="./three几何体_files/16521966256146748113553437602.png" alt="image-20220503232630818"></p>
+<h3 id="1-2-三维几何体">1-2-三维几何体</h3>
+<h4 id="boxgeometry-立方体">BoxGeometry 立方体</h4>
+<p><img src="./three几何体_files/165219662561414103002182812707.png" alt="image-20220504085446202"></p>
+<p>BoxGeometry(width : Float, height : Float, depth : Float, widthSegments : Integer, heightSegments : Integer, depthSegments : Integer)</p>
+<ul>
+<li>width — X轴上面的宽度，默认值为1。</li>
+<li>height — Y轴上面的高度，默认值为1。</li>
+<li>depth — Z轴上面的深度，默认值为1。</li>
+<li>widthSegments — （可选）宽度的分段数，默认值是1。</li>
+<li>heightSegments — （可选）高度的分段数，默认值是1。</li>
+<li>depthSegments — （可选）深度的分段数，默认值是1。</li>
+</ul>
+<h4 id="tetrahedrongeometry-四面体">TetrahedronGeometry 四面体</h4>
+<p><img src="./three几何体_files/16521966256149018142529839461.png" alt="image-20220504085814399"></p>
+<p>TetrahedronGeometry(radius : Float, detail : Integer)</p>
+<ul>
+<li>radius — 四面体的半径，默认值为1。</li>
+<li>detail — 默认值为0。将这个值设为一个大于0的数将会为它增加一些顶点，使其不再是一个四面体。</li>
+</ul>
+<h4 id="octahedrongeometry-八面体">OctahedronGeometry 八面体</h4>
+<p><img src="./three几何体_files/16521966256146149148194465983.png" alt="image-20220504095541337"></p>
+<p>OctahedronGeometry(radius : Float, detail : Integer)</p>
+<ul>
+<li>radius — 八面体的半径，默认值为1。</li>
+<li>detail — 默认值为0，将这个值设为一个大于0的数将会为它增加一些顶点，使其不再是一个八面体。</li>
+</ul>
+<h4 id="dodecahedrongeometry--十二面体">DodecahedronGeometry  十二面体</h4>
+<p><img src="./three几何体_files/165219662561423405805247106493.png" alt="image-20220504095710956"></p>
+<p>DodecahedronGeometry(radius : Float, detail : Integer)</p>
+<ul>
+<li>radius — 十二面体的半径，默认值为1。</li>
+<li>detail — 默认值为0。将这个值设为一个大于0的数将会为它增加一些顶点，使其不再是一个十二面体。</li>
+</ul>
+<h4 id="icosahedrongeometry-二十面体">IcosahedronGeometry 二十面体</h4>
+<p><img src="./three几何体_files/165219662561406967457725538462.png" alt="image-20220504095829094"></p>
+<p>IcosahedronGeometry(radius : Float, detail : Integer)</p>
+<ul>
+<li>radius — 二十面体的半径，默认为1。</li>
+<li>detail — 默认值为0。将这个值设为一个大于0的数将会为它增加一些顶点，使其不再是一个二十面体。当这个值大于1的时候，实际上它将变成一个球体。</li>
+</ul>
+<h4 id="polyhedrongeometry-多面体">PolyhedronGeometry 多面体</h4>
+<p>PolyhedronGeometry(vertices : Array, indices : Array, radius : Float, detail : Integer</p>
+<ul>
+<li>vertices — 一个顶点Array（数组）：[1,1,1, -1,-1,-1, ... ]。</li>
+<li>indices — 一个构成面的索引Array（数组）， [0,1,2, 2,3,0, ... ]。</li>
+<li>radius — Float - 最终形状的半径。</li>
+<li>detail — Integer - 将对这个几何体细分多少个级别。细节越多，形状就越平滑。</li>
+</ul>
+<p>代码示例：</p>
+<pre><code class="language-js">const geometry = new PolyhedronGeometry(
+  [-1, -1, -1, 1, -1, -1, 1, 1, -1, -1, 1, -1, -1, -1, 1, 1, -1, 1, 1, 1, 1, -1, 1, 1],
+  [2, 1, 0, 0, 3, 2, 0, 4, 7, 7, 3, 0, 0, 1, 5, 5, 4, 0, 1, 2, 6, 6, 5, 1, 2, 3, 7, 7, 6, 2, 4, 5, 6, 6, 7, 4],
+  1,
+  1
+);
+</code></pre>
+<p>效果如下：</p>
+<p><img src="./three几何体_files/16521966256144567140782422163.png" alt="image-20220504110801396"></p>
+<h4 id="spheregeometry-球体">SphereGeometry 球体</h4>
+<p><img src="./three几何体_files/16521966256146007076487781877.png" alt="image-20220504110937583"></p>
+<p>SphereGeometry(radius : Float, widthSegments : Integer, heightSegments : Integer, phiStart : Float, phiLength : Float, thetaStart : Float, thetaLength : Float)</p>
+<ul>
+<li>radius — 球体半径，默认为1。</li>
+<li>widthSegments — 水平分段数（沿着经线分段），最小值为3，默认值为32。</li>
+<li>heightSegments — 垂直分段数（沿着纬线分段），最小值为2，默认值为16。</li>
+<li>phiStart — 指定水平（经线）起始角度，默认值为0。。</li>
+<li>phiLength — 指定水平（经线）扫描角度的大小，默认值为 Math.PI * 2。</li>
+<li>thetaStart — 指定垂直（纬线）起始角度，默认值为0。</li>
+<li>thetaLength — 指定垂直（纬线）扫描角度大小，默认值为 Math.PI。</li>
+</ul>
+<p>该几何体是通过扫描并计算围绕着Y轴（水平扫描）和X轴（垂直扫描）的顶点来创建的。 </p>
+<p>因此，我们可以通过为phiStart，phiLength，thetaStart和thetaLength属性对球体进行切片。</p>
+<h4 id="conegeometry--圆锥">ConeGeometry  圆锥</h4>
+<p><img src="./three几何体_files/16521966256144613475330232202.png" alt="image-20220504111033734"></p>
+<p>ConeGeometry(radius : Float, height : Float, radialSegments : Integer, heightSegments : Integer, openEnded : Boolean, thetaStart : Float, thetaLength : Float)</p>
+<ul>
+<li>radius — 圆锥底部的半径，默认值为1。</li>
+<li>height — 圆锥的高度，默认值为1。</li>
+<li>radialSegments — 圆锥侧面周围的分段数，默认为8。</li>
+<li>heightSegments — 圆锥侧面沿着其高度的分段数，默认值为1。</li>
+<li>openEnded — 一个Boolean值，指明该圆锥的底面是开放的还是封顶的。默认值为false，即其底面默认是封顶的。</li>
+<li>thetaStart — 第一个分段的起始角度，默认为0。（three o'clock position）</li>
+<li>thetaLength — 圆锥底面圆扇区的中心角，通常被称为“θ”（西塔）。默认值是2*Pi，这使其成为一个完整的圆锥。</li>
+</ul>
+<h4 id="cylindergeometry-圆柱">CylinderGeometry 圆柱</h4>
+<p><img src="./three几何体_files/165219662561413148782330334985.png" alt="image-20220504111139329"></p>
+<p>CylinderGeometry(radiusTop : Float, radiusBottom : Float, height : Float, radialSegments : Integer, heightSegments : Integer, openEnded : Boolean, thetaStart : Float, thetaLength : Float)</p>
+<ul>
+<li>radiusTop — 圆柱的顶部半径，默认值是1。</li>
+<li>radiusBottom — 圆柱的底部半径，默认值是1。</li>
+<li>height — 圆柱的高度，默认值是1。</li>
+<li>radialSegments — 圆柱侧面周围的分段数，默认为8。</li>
+<li>heightSegments — 圆柱侧面沿着其高度的分段数，默认值为1。</li>
+<li>openEnded — 一个Boolean值，表示该圆柱的底面和顶面是否开放。默认值为false，即闭合。</li>
+<li>thetaStart — 第一个分段的起始角度，默认为0。（three o'clock position）</li>
+<li>thetaLength — 圆柱底面圆扇区的中心角，通常被称为“θ”（西塔）。默认值是2*Pi，这使其成为一个完整的圆柱。</li>
+</ul>
+<h4 id="torusgeometry-三维圆环">TorusGeometry 三维圆环</h4>
+<p><img src="./three几何体_files/165219662561426037169484404865.png" alt="image-20220504111253084"></p>
+<p>TorusGeometry(radius : Float, tube : Float, radialSegments : Integer, tubularSegments : Integer, arc : Float)</p>
+<ul>
+<li>radius - 环面的半径，从环面的中心到管道横截面的中心。默认值是1。</li>
+<li>tube — 管道的半径，默认值为0.4。</li>
+<li>radialSegments — 管道横截面的分段数，默认值为8。</li>
+<li>tubularSegments —圆环x的分段数，默认值为6。</li>
+<li>arc — 圆环的圆心角（单位是弧度），默认值为Math.PI * 2。</li>
+</ul>
+<h4 id="torusknotgeometry-扭结">TorusKnotGeometry 扭结</h4>
+<p><img src="./three几何体_files/165219662561418291500856346032.png" alt="image-20220504111338713"></p>
+<p>TorusKnotGeometry(radius : Float, tube : Float, tubularSegments : Integer, radialSegments : Integer, p : Integer, q : Integer)</p>
+<p>radius - 圆环的半径，默认值为1。</p>
+<p>tube — 管道的半径，默认值为0.4。</p>
+<p>tubularSegments — 扭结线的分段数量，默认值为64。</p>
+<p>radialSegments — 管道分段数量，默认值为8。</p>
+<p>p — 这个值决定了几何体将绕着其旋转对称轴旋转多少次，默认值是2。</p>
+<p>q — 这个值决定了几何体将绕着其内部圆环旋转多少次，默认值是3。</p>
+<h3 id="1-3-路径合成几何体">1-3-路径合成几何体</h3>
+<h4 id="tubegeometry-管道">TubeGeometry 管道</h4>
+<p><img src="./three几何体_files/16521966256145798280202353783.png" alt="image-20220504135429956"></p>
+<p>TubeGeometry(path : Curve, tubularSegments : Integer, radius : Float, radialSegments : Integer, closed : Boolean)</p>
+<ul>
+<li>path — Curve - 一个由基类Curve继承而来的3D路径。 Default is a quadratic bezier curve.</li>
+<li>tubularSegments — Integer - 组成这一管道的分段数，默认值为64。</li>
+<li>radius — Float - 管道的半径，默认值为1。</li>
+<li>radialSegments — Integer - 管道横截面的分段数目，默认值为8。</li>
+<li>closed — Boolean 管道的两端是否闭合，默认值为false。</li>
+</ul>
+<p>代码示例：</p>
+<p>1.自定义一个绘制曲线的curve对象</p>
+<ul>
+<li>src/component/CustomSinCurve</li>
+</ul>
+<pre><code class="language-tsx">import { Curve, Vector3 } from "three";
+
+export class CustomSinCurve extends Curve&lt;Vector3&gt; {
+  getPoint(t: number): Vector3 {
+    const a = t * 4 + 1;
+    const ty = (a * Math.cos(t * Math.PI * 2 * 4)) / 8;
+    const tz = (a * Math.sin(t * Math.PI * 2 * 4)) / 8;
+    return new Vector3(t, ty, tz);
+  }
+}
+</code></pre>
+<p>2.建立管道几何体</p>
+<pre><code class="language-tsx">const path = new CustomSinCurve();
+const geometry = new TubeGeometry(path, 128, 0.05, 3, false);
+</code></pre>
+<h4 id="lathegeometry-车削">LatheGeometry 车削</h4>
+<p><img src="./three几何体_files/16521966256149936451040626124.png" alt="image-20220504142139777"></p>
+<p>LatheGeometry(points : Array, segments : Integer, phiStart : Float, phiLength : Float)</p>
+<ul>
+<li>points — 一个Vector2对象数组。每个点的X坐标必须大于0。 </li>
+<li>segments — 要生成的车削几何体圆周分段的数量，默认值是12。</li>
+<li>phiStart — 以弧度表示的起始角度，默认值为0。</li>
+<li>phiLength — 车削部分的弧度（0-2PI）范围，2PI将是一个完全闭合的、完整的车削几何体，小于2PI是部分的车削。默认值是2PI。</li>
+</ul>
+<p>代码示例：</p>
+<pre><code class="language-tsx">const points = [];
+for (let i = 0; i &lt; 1; i += 0.1) {
+  const x = (Math.sin(i * Math.PI * 1.8 + 2.8) + 1.1) / 5;
+  points.push(new Vector2(x, i));
+}
+const geometry = new LatheGeometry(points, 32, 0, Math.PI);
+</code></pre>
+<h4 id="extrudegeometry-挤压">ExtrudeGeometry 挤压</h4>
+<p><img src="./three几何体_files/165219662561409099358202992835.png" alt="image-20220504191609116"></p>
+<p>ExtrudeGeometry(shapes : Array, options : Object)</p>
+<ul>
+<li>shapes — 形状或者一个包含形状的数组。</li>
+<li>options — 一个包含有下列参数的对象：<ul>
+<li>steps — int，用于沿着挤出样条的深度细分的点的数量，默认值为1。</li>
+<li>depth — float，挤出的形状的深度，默认值为1。</li>
+<li>bevelEnabled — bool，对挤出的形状应用是否斜角，默认值为true。</li>
+<li>bevelThickness — float，设置原始形状上斜角的厚度。默认值为0.2。</li>
+<li>bevelSize — float。斜角与原始形状轮廓之间的延伸距离，默认值为bevelThickness-0.1。</li>
+<li>bevelOffset — float. Distance from the shape outline that the bevel starts. Default is 0.</li>
+<li>bevelSegments — int。斜角的分段层数，默认值为3。</li>
+<li>extrudePath — THREE.Curve对象。一条沿着被挤出形状的三维样条线。Bevels not supported for path extrusion.</li>
+<li>UVGenerator — Object。提供了UV生成器函数的对象。</li>
+</ul>
+</li>
+</ul>
+<p>该对象可以将一个二维形状挤成一个三维几何体。</p>
+<p>当使用这个几何体创建Mesh的时候，如果你希望分别对它的表面和它挤出的侧面使用单独的材质，你可以使用一个材质数组。 第一个材质将用于其表面；第二个材质则将用于其挤压出的侧面。</p>
+<p>代码示例：</p>
+<pre><code class="language-tsx">const shape = new Shape();
+shape.moveTo(0, 0);
+shape.lineTo(0, 1);
+shape.lineTo(1, 1);
+shape.lineTo(1, 0);
+shape.lineTo(0, 0);
+
+const extrudeSettings = {
+  steps: 1,
+  depth: 1,
+  bevelEnabled: true,
+  bevelThickness: 0.2,
+  bevelSize: 0.1,
+  bevelOffset: 0,
+  bevelSegments: 1,
+};
+
+const geometry = new ExtrudeGeometry(shape, extrudeSettings);
+</code></pre>
+<p>除此之外，我们还可以通过extrudePath 属性让一个二维图形沿curve 路径做挤压。</p>
+<pre><code class="language-tsx">const shape = new Shape();
+shape.moveTo(0, 0);
+shape.lineTo(0.1, 0);
+shape.lineTo(0.1, 0.1);
+const path = new CustomSinCurve();
+const geometry = new ExtrudeGeometry(shape, {
+  steps: 128,
+  extrudePath: path,
+});
+</code></pre>
+<p>效果如下：</p>
+<p><img src="./three几何体_files/16521974439828149687080720114.png" alt="image-20220510234312619"></p>
+<h3 id="1-4-线性几何体">1-4-线性几何体</h3>
+<h4 id="wireframegeometry-网格几何体">WireframeGeometry 网格几何体</h4>
+<p><img src="./three几何体_files/16521966256146909529389647722.png" alt="image-20220504210416920"></p>
+<p>WireframeGeometry( geometry : BufferGeometry )</p>
+<ul>
+<li>geometry — 任意几何体对象。</li>
+</ul>
+<p>代码示例：</p>
+<pre><code class="language-tsx">const line = new LineSegments(wireframe);
+const mat = line.material as LineBasicMaterial;
+mat.depthTest = false;
+mat.opacity = 0.5;
+mat.transparent = true;
+</code></pre>
+<h4 id="edgesgeometry-边缘几何体">EdgesGeometry 边缘几何体</h4>
+<p><img src="./three几何体_files/16521966256145701326384977807.png" alt="image-20220504212043725"></p>
+<p>EdgesGeometry( geometry : BufferGeometry, thresholdAngle : Integer )</p>
+<ul>
+<li>geometry — 任何一个几何体对象。</li>
+<li>thresholdAngle — 仅当相邻面的法线之间的角度（单位为角度）超过这个值时，才会渲染边缘。默认值为1。</li>
+</ul>
+<p>代码示例：</p>
+<pre><code class="language-tsx">const geometry = new SphereGeometry(2, 8, 8);
+const edges = new EdgesGeometry(geometry);
+const line = new LineSegments(edges);
+</code></pre>
+<h2 id="2-自定义几何体">2-自定义几何体</h2>
+<h3 id="2-1-基本概念">2-1-基本概念</h3>
+<p>BufferGeometry 是所有three.js 内置几何体的基类，通过此基类可以自定义几何体。</p>
+<p>BufferGeometry 具备以下重要属性：</p>
+<ul>
+<li>position  顶点位置</li>
+<li>index 顶点索引</li>
+<li>normal 法线</li>
+<li>uv 坐标</li>
+<li>color 顶点颜色</li>
+</ul>
+<p><img src="./three几何体_files/1652196625614958571643073354.svg" alt="img"> </p>
+<p>从上图可以看出，在顶点索引为4的地方，position 、normal 、uv 、color 是基于顶点一一对应的。</p>
+<p>接下来咱们自己自定义一个几何体。</p>
+<h3 id="2-2-自定义立方体">2-2-自定义立方体</h3>
+<p>1.在下面的vertices里，我们按照对立三角形的绘图方式，定义了立方体的6个面，共36个顶点。</p>
+<pre><code class="language-js">const vertices = [
+  // front
+  { pos: [-1, -1,  1], norm: [ 0,  0,  1], uv: [0, 0], },
+  { pos: [ 1, -1,  1], norm: [ 0,  0,  1], uv: [1, 0], },
+  { pos: [-1,  1,  1], norm: [ 0,  0,  1], uv: [0, 1], },
+ 
+  { pos: [-1,  1,  1], norm: [ 0,  0,  1], uv: [0, 1], },
+  { pos: [ 1, -1,  1], norm: [ 0,  0,  1], uv: [1, 0], },
+  { pos: [ 1,  1,  1], norm: [ 0,  0,  1], uv: [1, 1], },
+  // right
+  { pos: [ 1, -1,  1], norm: [ 1,  0,  0], uv: [0, 0], },
+  { pos: [ 1, -1, -1], norm: [ 1,  0,  0], uv: [1, 0], },
+  { pos: [ 1,  1,  1], norm: [ 1,  0,  0], uv: [0, 1], },
+ 
+  { pos: [ 1,  1,  1], norm: [ 1,  0,  0], uv: [0, 1], },
+  { pos: [ 1, -1, -1], norm: [ 1,  0,  0], uv: [1, 0], },
+  { pos: [ 1,  1, -1], norm: [ 1,  0,  0], uv: [1, 1], },
+  // back
+  { pos: [ 1, -1, -1], norm: [ 0,  0, -1], uv: [0, 0], },
+  { pos: [-1, -1, -1], norm: [ 0,  0, -1], uv: [1, 0], },
+  { pos: [ 1,  1, -1], norm: [ 0,  0, -1], uv: [0, 1], },
+ 
+  { pos: [ 1,  1, -1], norm: [ 0,  0, -1], uv: [0, 1], },
+  { pos: [-1, -1, -1], norm: [ 0,  0, -1], uv: [1, 0], },
+  { pos: [-1,  1, -1], norm: [ 0,  0, -1], uv: [1, 1], },
+  // left
+  { pos: [-1, -1, -1], norm: [-1,  0,  0], uv: [0, 0], },
+  { pos: [-1, -1,  1], norm: [-1,  0,  0], uv: [1, 0], },
+  { pos: [-1,  1, -1], norm: [-1,  0,  0], uv: [0, 1], },
+ 
+  { pos: [-1,  1, -1], norm: [-1,  0,  0], uv: [0, 1], },
+  { pos: [-1, -1,  1], norm: [-1,  0,  0], uv: [1, 0], },
+  { pos: [-1,  1,  1], norm: [-1,  0,  0], uv: [1, 1], },
+  // top
+  { pos: [ 1,  1, -1], norm: [ 0,  1,  0], uv: [0, 0], },
+  { pos: [-1,  1, -1], norm: [ 0,  1,  0], uv: [1, 0], },
+  { pos: [ 1,  1,  1], norm: [ 0,  1,  0], uv: [0, 1], },
+ 
+  { pos: [ 1,  1,  1], norm: [ 0,  1,  0], uv: [0, 1], },
+  { pos: [-1,  1, -1], norm: [ 0,  1,  0], uv: [1, 0], },
+  { pos: [-1,  1,  1], norm: [ 0,  1,  0], uv: [1, 1], },
+  // bottom
+  { pos: [ 1, -1,  1], norm: [ 0, -1,  0], uv: [0, 0], },
+  { pos: [-1, -1,  1], norm: [ 0, -1,  0], uv: [1, 0], },
+  { pos: [ 1, -1, -1], norm: [ 0, -1,  0], uv: [0, 1], },
+ 
+  { pos: [ 1, -1, -1], norm: [ 0, -1,  0], uv: [0, 1], },
+  { pos: [-1, -1,  1], norm: [ 0, -1,  0], uv: [1, 0], },
+  { pos: [-1, -1, -1], norm: [ 0, -1,  0], uv: [1, 1], },
+];
+</code></pre>
+<p>2.按照属性将这些顶点分成三组：</p>
+<pre><code class="language-tsx">const positions = [];
+const normals = [];
+const uvs = [];
+for (const vertex of vertices) {
+  positions.push(...vertex.pos);
+  normals.push(...vertex.norm);
+  uvs.push(...vertex.uv);
+}
+</code></pre>
+<p>3.基于positions、normals 和uvs 建立BufferAttribute 对象。</p>
+<pre><code class="language-js">const geometry = new BufferGeometry();
+const positionNumComponents = 3;
+const normalNumComponents = 3;
+const uvNumComponents = 2;
+const positionAttr=new BufferAttribute(
+  new Float32Array(positions), 
+  positionNumComponents
+)
+const normalAttr=new BufferAttribute(
+  new Float32Array(normals), 
+  normalNumComponents
+)
+const uvAttr=new BufferAttribute(
+  new Float32Array(uvs), 
+  uvNumComponents
+)
+</code></pre>
+<p><a href="https://threejs.org/docs/index.html?q=BufferAttribute#api/en/core/BufferAttribute">BufferAttribute</a> 对象就是对顶点着色器中Attribute 变量的管理，通过此对象可以存储顶点点位、顶点数量、矢量长度等，并可以对其进行矩阵变换、拷贝、读写等。</p>
+<p>4.将BufferAttribute 对象添加到geometry 几何体中。    </p>
+<pre><code class="language-js">geometry.setAttribute('position',positionAttr);
+geometry.setAttribute('normal',normalAttr);
+geometry.setAttribute('uv',uvAttr);
+</code></pre>
+<p>在setAttribute()中，'position'、'normal'、'uv'、' color ' 都是内置attribute 变量名，不能随便写。</p>
+<p>当然如果我们想自定义attribute 变量名，那就可以随便写了，只要符合基本的命名规范就行。</p>
+<p>几何体形状如下：</p>
+<p><img src="./three几何体_files/16521966256147085247731148268.png" alt="image-20220505114047411"></p>
+<p>自定义几何体的基本方法就是这样，接下来我们还可以使用顶点索引自定义几何体。</p>
+<h3 id="2-3-顶点索引">2-3-顶点索引</h3>
+<p>1.将vertices  设置为4*6=24 个点，一个面4个点。</p>
+<pre><code class="language-js">const vertices = [
+  // front
+  { pos: [-1, -1,  1], norm: [ 0,  0,  1], uv: [0, 0], }, // 0
+  { pos: [ 1, -1,  1], norm: [ 0,  0,  1], uv: [1, 0], }, // 1
+  { pos: [-1,  1,  1], norm: [ 0,  0,  1], uv: [0, 1], }, // 2
+  { pos: [ 1,  1,  1], norm: [ 0,  0,  1], uv: [1, 1], }, // 3
+  // right
+  { pos: [ 1, -1,  1], norm: [ 1,  0,  0], uv: [0, 0], }, // 4
+  { pos: [ 1, -1, -1], norm: [ 1,  0,  0], uv: [1, 0], }, // 5
+  { pos: [ 1,  1,  1], norm: [ 1,  0,  0], uv: [0, 1], }, // 6
+  { pos: [ 1,  1, -1], norm: [ 1,  0,  0], uv: [1, 1], }, // 7
+  // back
+  { pos: [ 1, -1, -1], norm: [ 0,  0, -1], uv: [0, 0], }, // 8
+  { pos: [-1, -1, -1], norm: [ 0,  0, -1], uv: [1, 0], }, // 9
+  { pos: [ 1,  1, -1], norm: [ 0,  0, -1], uv: [0, 1], }, // 10
+  { pos: [-1,  1, -1], norm: [ 0,  0, -1], uv: [1, 1], }, // 11
+  // left
+  { pos: [-1, -1, -1], norm: [-1,  0,  0], uv: [0, 0], }, // 12
+  { pos: [-1, -1,  1], norm: [-1,  0,  0], uv: [1, 0], }, // 13
+  { pos: [-1,  1, -1], norm: [-1,  0,  0], uv: [0, 1], }, // 14
+  { pos: [-1,  1,  1], norm: [-1,  0,  0], uv: [1, 1], }, // 15
+  // top
+  { pos: [ 1,  1, -1], norm: [ 0,  1,  0], uv: [0, 0], }, // 16
+  { pos: [-1,  1, -1], norm: [ 0,  1,  0], uv: [1, 0], }, // 17
+  { pos: [ 1,  1,  1], norm: [ 0,  1,  0], uv: [0, 1], }, // 18
+  { pos: [-1,  1,  1], norm: [ 0,  1,  0], uv: [1, 1], }, // 19
+  // bottom
+  { pos: [ 1, -1,  1], norm: [ 0, -1,  0], uv: [0, 0], }, // 20
+  { pos: [-1, -1,  1], norm: [ 0, -1,  0], uv: [1, 0], }, // 21
+  { pos: [ 1, -1, -1], norm: [ 0, -1,  0], uv: [0, 1], }, // 22
+  { pos: [-1, -1, -1], norm: [ 0, -1,  0], uv: [1, 1], }, // 23
+];
+</code></pre>
+<p>2.用BufferGeometry.setIndex() 方法设置顶点索引。</p>
+<pre><code class="language-js">geometry.setIndex([
+  // front
+   0,  1,  2,   2,  1,  3, 
+  // right
+   4,  5,  6,   6,  5,  7,  
+  // back
+   8,  9, 10,  10,  9, 11, 
+  // left
+  12, 13, 14,  14, 13, 15,  
+  // top
+  16, 17, 18,  18, 17, 19, 
+  // bottom
+  20, 21, 22,  22, 21, 23,  
+]);
+</code></pre>
+<h3 id="2-4-计算法线">2-4-计算法线</h3>
+<p>BufferGeometry有一个自己根据现有顶点计算法线的方法computeVertexNormals()。</p>
+<p>computeVertexNormals() 方法是按照逐顶点着色的方式计算法线的。</p>
+<p>逐顶点着色的原理我们在webgl 的光里说过。</p>
+<p>代码示例：</p>
+<pre><code class="language-tsx">geometry.setAttribute("position", positionAttr);
+// geometry.setAttribute("normal", normalAttr);
+geometry.setAttribute("uv", uvAttr);
+geometry.setIndex([0, 1, 2, 2, 1, 3, 4, 5, 6, 6, 5, 7, 8, 9, 10, 10, 9, 11, 12, 13, 14, 14, 13, 15, 16, 17, 18, 18, 17, 19, 20, 21, 22, 22, 21, 23]);
+geometry.computeVertexNormals();
+</code></pre>
+<p>我们可以用VertexNormalsHelper 对象将一个Mesh对象的法线显示出来：</p>
+<pre><code class="language-js">const cube = new Mesh(geometry, material);
+const helper = new VertexNormalsHelper(cube);
+scene.add(mesh, helper);
+</code></pre>
+<p>效果如下：</p>
+<p><img src="./three几何体_files/16521966256145973249359513797.png" alt="image-20220505154649428"></p>
+<p>在用computeVertexNormals() 方法计算法线的时候，若在光滑的物体表面发现了明显的接缝线，那这可能就是由两排位置相同、法线不同的顶点引起的。</p>
+<p>这需要我们自己根据模型特征调整法线，将这两排顶点的法线调成一样。</p>
+<p><img src="./three几何体_files/16538090823754666162556084752.png" alt="image-20220527223829778"></p>
+<h3 id="2-5-顶点数据的更新">2-5-顶点数据的更新</h3>
+<p>当我们想要修改几何体的顶点数据的时候，可以直接通过BufferGeometry 对象下的BufferAttribute 修改。</p>
+<p>举个例子：我要在一秒后，把上面自定义的几何体打开一个口子。</p>
+<p><img src="./three几何体_files/16521966256143028240815791472.png" alt="image-20220507102640729"></p>
+<p>代码如下：</p>
+<pre><code class="language-js">setTimeout(() =&gt; {
+  positionAttr.setXYZ(18, 1, 2, 1);
+  positionAttr.needsUpdate = true;
+}, 1000);
+</code></pre>
+<p>接下来在渲染器执行render() 方法时，便会将最新的顶点数据传递给顶点着色器里的attribute 变量。</p>
+<p>关于几何体的基础知识，咱们就说到这，接下来咱们做点好玩的东西，巩固咱们之前的所学。</p>
+<h2 id="案例-自定义波浪球">案例-自定义波浪球</h2>
+<p>下面这个绚丽的波浪球就是我们接下来要做的，我之后还会让它蠕动来。其中会制涉及的知识点有自定义几何体的封装、几何体顶点数据的读写、正弦函数动画等。</p>
+<p><img src="./three几何体_files/16521966256142910324011933154.png" alt="image-20220507130846972"></p>
+<p>1.封装一个波浪球对象。</p>
+<pre><code class="language-tsx">import {
+    BufferGeometry,
+    Vector3,
+    Object3D,
+    BufferAttribute,
+    InterleavedBufferAttribute,
+    Euler,
+} from "three"
+const pi2 = Math.PI * 2
+
+export default class WaveBall extends BufferGeometry {
+    // 分段数
+    widthSegments: number
+    heightSegments: number
+    // 正弦参数y=Asin(ωx+φ)
+    a: number = 0.7
+    omega: number = 12
+
+    constructor(widthSegments: number = 18, heightSegments: number = 12) {
+        super()
+        this.widthSegments = widthSegments
+        this.heightSegments = heightSegments
+        this.init()
+    }
+    init() {
+        const { widthSegments, heightSegments } = this
+        //网格线的数量
+        const [width, height] = [widthSegments + 1, heightSegments + 1]
+        //顶点数量
+        const count = width * height
+        //顶点点位
+        const positions = new Float32Array(count * 3)
+        //顶点索引
+        const indices = []
+
+        //根据经纬度计算顶点点位的方法
+        const setPos = SetPos(positions)
+
+        // 逐行列遍历
+        for (let y = 0; y &lt; height; ++y) {
+            // 维度[-Math.PI/2,Math.PI/2]
+            const lat = (y / heightSegments - 0.5) * Math.PI
+            for (let x = 0; x &lt; width; ++x) {
+                // 经度[-Math.PI,Math.PI]
+                const long = (x / widthSegments - 0.5) * Math.PI * 2
+                // 设置顶点点位
+                setPos(lat, long)
+                // 设置顶点索引
+                if (y &amp;&amp; x) {
+                    // 一个矩形格子的左上lt、右上rt、左下lb、右下rb点
+                    const lt = (y - 1) * width + (x - 1)
+                    const rt = (y - 1) * width + x
+                    const lb = y * width + (x - 1)
+                    const rb = y * width + x
+                    indices.push(lb, rb, lt, lt, rb, rt)
+                }
+            }
+        }
+        this.setAttribute("position", new BufferAttribute(positions, 3))
+        this.setIndex(indices)
+        this.computeVertexNormals()
+    }
+    //波浪
+    wave(phi = 0) {
+        const { widthSegments, heightSegments, a, omega } = this
+        //网格线的数量
+        const [width, height] = [widthSegments + 1, heightSegments + 1]
+        // 顶点点位
+        const posAttr = this.getAttribute("position")
+        // 修改点位的方法
+        const changePos = ChangePos(posAttr)
+        // 一圈波浪线的总弧度
+        const allAng = omega * pi2
+        // 每个分段的弧度
+        const yAng = allAng / heightSegments
+        const xAng = allAng / widthSegments
+        // 逐行列遍历
+        for (let y = 0; y &lt; height; ++y) {
+            // y向起伏
+            const r0 = Math.sin(y * yAng + phi)
+            // 基于y值做起伏衰减
+            const decay = a * 0.2 + a * (0.5 - Math.abs(y / heightSegments - 0.5))
+            for (let x = 0; x &lt; width; ++x) {
+                // x向起伏
+                const r1 = Math.sin(x * xAng + phi)
+                // 基于半径修改顶点位置
+                changePos((r0 + r1) * decay + 1)
+                // changePos(r0 * r1 * decay + 1)
+                // changePos(r1 * 0.1 + 1)
+            }
+        }
+        // this.computeVertexNormals()
+        // 顶点数据需要更新
+        posAttr.needsUpdate = true
+    }
+}
+
+// 基于半径修改顶点位置
+function ChangePos(attr: BufferAttribute | InterleavedBufferAttribute) {
+    let index = 0
+    // 根据索引获取顶点
+    const getXYZ = GetXYZ(attr)
+    return function (r: number) {
+        const p = getXYZ(index)
+        p.setLength(r)
+        // 设置指定索引位的顶点的x、y、z值
+        attr.setXYZ(index, ...p.toArray())
+        index += 1
+    }
+}
+
+// 根据索引获取顶点
+function GetXYZ(attr: BufferAttribute | InterleavedBufferAttribute) {
+    return function (ind: number) {
+        return new Vector3(attr.getX(ind), attr.getY(ind), attr.getZ(ind))
+    }
+}
+
+// 基于经纬度计算顶点点位
+function SetPos(positions: Float32Array) {
+    let posNdx = 0
+    //根据经纬度获取点位
+    // const getPoint = GetPoint()
+    return function (lat: number, long: number) {
+        const pos = getPoint(lat, long)
+        positions.set(pos, posNdx)
+        posNdx += 3
+        return pos
+    }
+}
+// 获取顶点位
+function GetPoint() {
+    //经度辅助对象
+    const longHelper = new Object3D()
+    //维度辅助对象
+    const latHelper = new Object3D()
+    // 顶点辅助对象
+    const pointHelper = new Object3D()
+    //构建层级关系
+    longHelper.add(latHelper)
+    latHelper.add(pointHelper)
+    pointHelper.position.z = 1
+    //暂存顶点
+    const temp = new Vector3()
+    return function (lat: number, long: number) {
+        // 旋转经、纬度辅助对象
+        longHelper.rotation.y = long
+        latHelper.rotation.x = lat
+        // 返回longHelper的世界坐标位
+        return pointHelper.getWorldPosition(temp).toArray()
+    }
+}
+// 欧拉
+function getPoint(lat: number, long: number) {
+    const euler = new Euler(lat, long, 0, "YXZ")
+    const p = new Vector3(0, 0, 1)
+    p.applyEuler(euler)
+    return p.toArray()
+}
+</code></pre>
+<p>2.将波浪球实例化</p>
+<pre><code class="language-tsx">const geometry = new WaveBall(48, 48);
+geometry.wave();
+</code></pre>
+<p>3.之后我们也可以在连续渲染方法里将时间传递到geometry.wave()里，作为波浪的偏移值。</p>
+<pre><code class="language-tsx">stage.beforeRender = (time = 0) =&gt; {
+    geometry.wave(time * 0.002)
+}
+</code></pre>
+<p>参考链接：<a href="https://threejs.org/manual/#en/custom-buffergeometry">https://threejs.org/manual/#en/custom-buffergeometry</a></p>
+</article> <div id="weixin" style=""><div class="text-center"><img width="300px" src="./three几何体_files/weixin.jpg" alt="微信"></div> <div class="text-center">
+                    最近忙webgl，没建评论区，有问题微信聊
+                </div></div></div></div>
+    <script src="./three几何体_files/marked.js.下载"></script>
+    <script src="./three几何体_files/vue.js.下载"></script>
+    <script>
+        let urlParam=getUrlParam();
+        const app = new Vue({
+            el: '#app',
+            data: {
+                title: urlParam.title,
+                md:'loading……',
+                loaded:false
+            },
+            created(){
+                getMd().then(md=>{
+                    this.md=md;
+                    this.loaded=true;
+                })
+            },
+        })
+        /*抓取md文件*/
+        function getMd(){
+            const url='https://blog-mds.oss-cn-beijing.aliyuncs.com/'+urlParam.ossName;
+            return fetch(url)
+                .then(res=>res.text())
+                .then(data=>{
+                    return marked(data);
+                })
+        }
+        /*获取url参数*/
+        function getUrlParam(){
+            let {search}=window.location;
+            search=search.slice(1,search.length);
+            search=search.split('&');
+            const obj={};
+            search.forEach(ele=>{
+                let [key,val]=ele.split('=');
+                obj[key]=decodeURIComponent(val);
+            })
+            return obj;
+        }
+    </script>
+
+
+</body><div></div></html>

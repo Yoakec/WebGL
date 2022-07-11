@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<!-- saved from url=(0139)http://yxyy.name/blog/md.html?ossName=1627652122086200023757941713.md&title=%E8%A7%86%E5%9B%BE%E7%9F%A9%E9%98%B5%E7%9A%84%E6%9C%AC%E8%B4%A8 -->
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>李伟的博客</title>
+    <link rel="Shortcut Icon" href="https://yxyy-img.oss-cn-shanghai.aliyuncs.com/favicon.ico" type="image/x-icon">
+    <link rel="stylesheet" type="text/css" href="./视图矩阵的本质_files/com.css">
+    <link rel="stylesheet" type="text/css" href="./视图矩阵的本质_files/github-markdown.css">
+    <link rel="stylesheet" type="text/css" href="./视图矩阵的本质_files/md.css">
+</head>
+<body>
+    <div id="app"><h1 class="text-center page-title">视图矩阵的本质</h1> <div class="container"><article class="markdown-body"><h2 id="前言">前言</h2>
+<p>之前我们在讲视图矩阵的时候有点不好理解，接下来咱们说一下视图矩阵的本质。</p>
+<h3 id="课堂目标">课堂目标</h3>
+<ol>
+<li><p>理解视图矩阵的本质</p>
+</li>
+<li><p>可以灵活架构视图矩阵</p>
+</li>
+</ol>
+<h3 id="知识点">知识点</h3>
+<ol>
+<li>模型矩阵</li>
+<li>视图矩阵</li>
+</ol>
+<h2 id="第一章-视图矩阵的本质">第一章 视图矩阵的本质</h2>
+<p>我们之前说过，视图矩阵可以让我们从另一个角度观察物体。</p>
+<p>那我们能不能在没有视图矩阵的情况下，看见物体的另一个角度呢？</p>
+<p>答案肯定是可以，我们自己用模型矩阵把物体转一下就可以了。</p>
+<p>因此，视图矩阵的本质是对物体的旋转变换。</p>
+<p>而物体变换的本质则是对物体顶点的位移。</p>
+<p>所以，接下来咱们就通过模型矩阵的旋转变换来理解视图矩阵。</p>
+<p>1.我在webgl 画一个立方体</p>
+<p><img src="./视图矩阵的本质_files/16276521220869745452698135413.png" alt="image-20210419112825346"></p>
+<p>2.默认我们只能看见这个立方体的正面。</p>
+<p><img src="./视图矩阵的本质_files/16276521220869892048310271084.png" alt="image-20210419101758423"></p>
+<p>3.我想看看立方体右侧长啥样。</p>
+<p><img src="./视图矩阵的本质_files/16276521220865690056783734172.png" alt="image-20210419112953424"></p>
+<p>我们要实现第3步，可以构建一个矩阵，让它对立方体的顶点进行变换。</p>
+<p>这个矩阵的构建思路有两条：</p>
+<ul>
+<li>构建一个从左前方看物体的视图矩阵</li>
+<li>构建一个让立方体向左旋转的模型矩阵</li>
+</ul>
+<p>上面的两个矩阵最终的因子形态都是一样的。</p>
+<p>接下来我就按照上面的两个思路建立两个矩阵，然后对这两个矩阵的因子做一下对比，若它们都是一样的，那大家也就可以理解视图矩阵的本质了。</p>
+<h2 id="第二章-构建矩阵">第二章 构建矩阵</h2>
+<p>首先咱们先准备一个场景。</p>
+<p>我们通过俯视图来解释这个场景。</p>
+<p><img src="./视图矩阵的本质_files/162765212208646247436073941084.png" alt="image-20210419140628440"></p>
+<p>已知：</p>
+<ul>
+<li>视点为e</li>
+<li>目标点t=原点O</li>
+<li>上方向u(0,1,0)</li>
+</ul>
+<p>求：视点e所见的物体的形态</p>
+<p>接下来我们先以模型矩阵求解。</p>
+<h3 id="2-1-构建模型矩阵">2-1-构建模型矩阵</h3>
+<p>基于视线和z轴的夹角，将立方体向左旋转a即可。</p>
+<p><img src="./视图矩阵的本质_files/16276521220869707102255521549.png" alt="image-20210419140501658"></p>
+<p>想象一下，现在我们站在z轴上看见的立方体的形态，就相当于我们之前视点在e上算看见的立方体的形态。</p>
+<p>1.建立视线，目标点和上方向</p>
+<pre><code class="language-js">e=(-0.5, 0, 1)
+t=(0, 0, 0)
+u=(0, 1, 0)
+</code></pre>
+<p>2.用目标点减视点得视线c</p>
+<pre><code class="language-js">c=e-t
+c=(-0.5, 0, 1)
+</code></pre>
+<p>3.将c 归一化后，可得角a 的正弦值和余弦值</p>
+<p><img src="./视图矩阵的本质_files/162765212208635228679552528663.png" alt="image-20210419141325833"></p>
+<pre><code class="language-js">|c|=sqrt(c.x*c.x+c.y*c.y+c.z*c.z)
+
+c.x=c.x*(1/|c|)
+c.y=0
+c.z=c.z*(1/|c|)
+         
+cos = c.z
+sin = c.x
+</code></pre>
+<p>4.上面的cos和sin 便可以作为立方体向左旋转的模型矩阵(列主序)的旋转因子</p>
+<pre><code class="language-js">const modelMatrix = [
+    cos,  0, sin, 0,
+    0,    1, 0,   0,
+    -sin, 0, cos, 0,
+    0,    0, 0,   1
+]
+</code></pre>
+<p>接下来将模型矩阵传给顶点着色器，让其与顶点相乘即可，其原理我们在说模型矩阵的时候都说过，我就不再多说了。</p>
+<p>效果如下：</p>
+<p><img src="./视图矩阵的本质_files/16276521220865690056783734172.png" alt="image-20210419112953424"></p>
+<p>代码如下：</p>
+<pre><code class="language-js">const e = new Vector3(-0.5, 0, 1)
+const t = new Vector3(0, 0, 0)
+const u = new Vector3(0, 1, 0)
+
+const c = new Vector3().subVectors(e, t)
+c.normalize()
+
+const cos = c.z
+const sin = c.x
+
+const modelMatrix = [
+    cos, 0, sin, 0,
+    0, 1, 0, 0,
+    -sin, 0, cos, 0,
+    0, 0, 0, 1
+]
+</code></pre>
+<p>接下来我们再看看视图矩阵的构建。</p>
+<h3 id="2-2-构建视图矩阵">2-2-构建视图矩阵</h3>
+<p>我们要构建视图矩阵，就得构建新的坐标系[O;a,b,c]。</p>
+<p><img src="./视图矩阵的本质_files/16276521220866642456679980502.png" alt="image-20210419154323540"></p>
+<p>1.新坐标系的z 轴，视线c 的归一化。</p>
+<pre><code>c=(sin,0,cos)
+</code></pre>
+<p>2.新坐标系的x轴，可视之为上方向u(0,1,0)和视线c(sin,1,cos)构成的平面的垂线的归一化a</p>
+<p>a的坐标值可由垂直向量的叉乘定理得出：</p>
+<pre><code class="language-js">a=u^c
+a=(0,1,0)^(sin,1,cos)
+
+a.x=u.y*c.z-u.z*c.y
+a.x=1*cos-0*1
+a.x=cos
+
+a.y=u.z*c.x-u.x*c.z
+a.y=0*sin-0*cos
+a.y=0
+
+a.z=u.x*c.y-u.y*c.x
+a.z=0*1-1*sin
+a.z=-sin
+</code></pre>
+<p>因为：向量a是由两个相互垂直的归一化向量的叉乘得出</p>
+<p>所以：</p>
+<pre><code>|a|=|u|*|c|*sin90°
+|a|=1*1*1
+|a|=1
+</code></pre>
+<p>所以：向量a 无需再做归一化处理</p>
+<p>3.新坐标系的y轴，可视之为视线c(sin,0,cos)和向量a(cos,0,-sin)构成的平面的垂线的归一化b</p>
+<pre><code class="language-js">b=c^a
+b=(sin,0,cos)^(cos,0,-sin)
+
+b.x=c.y*a.z-c.z*a.y
+b.x=0*-sin-cos*0
+b.x=0
+
+b.y=c.z*a.x-c.x*a.z
+b.y=cos*cos+sin*sin
+b.y=1
+
+b.z=c.x*a.y-c.y*a.x
+b.z=sin*0-0*cos
+b.z=0
+</code></pre>
+<p>向量b无需归一，原理同上</p>
+<p>4.综上所述，新坐标系的三个基向量分别为：</p>
+<pre><code>a(cos,0,-sin)
+b(0,1,0)
+c(sin,0,cos)
+</code></pre>
+<p>5.根据三个基向量构建视图矩阵(列主序)</p>
+<pre><code class="language-js">const viewMatrix = [
+    cos,  0, sin, 0,
+    0,    1, 0,   0,
+    -sin, 0, cos, 0,
+    0,    0, 0,   1
+]
+</code></pre>
+<p>将视图矩阵viewMatrix和模型矩阵modelMatrix对比一下，会发现，它们是一样的。</p>
+<p>所以：视图矩阵的本质是对物体的旋转变换。</p>
+<p>代码实现：</p>
+<pre><code class="language-js">const e = new Vector3(-0.5, 0, 1)
+const t = new Vector3(0, 0, 0)
+const u = new Vector3(0, 1, 0)
+
+const c = new Vector3().subVectors(e, t)
+c.normalize()
+const a = new Vector3().crossVectors(u, c)
+a.normalize()
+const b = new Vector3().crossVectors(c, a)
+b.normalize()
+
+const viewMatrix = [
+    a.x, b.x, c.x, 0,
+    a.y, b.y, c.y, 0,
+    a.z, b.z, c.z, 0,
+    0, 0, 0, 1
+]
+</code></pre>
+<h3 id="扩展">扩展</h3>
+<p>在我们理解了视图矩阵的基本原理后，还可以对其做一些加工。</p>
+<p>比如我之前在讲视图矩阵的时候还对c 轴取反了，three.js里还对视图矩阵转置了，这个就要看我们之后的具体项目需求了。</p>
+<p>当前大家先理解视图矩阵的本质就好。</p>
+<p>之后我们还会说投影矩阵，到时我还会对矩阵进行深入讲解。</p>
+</article> <div id="weixin" style=""><div class="text-center"><img width="300px" src="./视图矩阵的本质_files/weixin.jpg" alt="微信"></div> <div class="text-center">
+                    最近忙webgl，没建评论区，有问题微信聊
+                </div></div></div></div>
+    <script src="./视图矩阵的本质_files/marked.js.下载"></script>
+    <script src="./视图矩阵的本质_files/vue.js.下载"></script>
+    <script>
+        let urlParam=getUrlParam();
+        const app = new Vue({
+            el: '#app',
+            data: {
+                title: urlParam.title,
+                md:'loading……',
+                loaded:false
+            },
+            created(){
+                getMd().then(md=>{
+                    this.md=md;
+                    this.loaded=true;
+                })
+            },
+        })
+        /*抓取md文件*/
+        function getMd(){
+            const url='https://blog-mds.oss-cn-beijing.aliyuncs.com/'+urlParam.ossName;
+            return fetch(url)
+                .then(res=>res.text())
+                .then(data=>{
+                    return marked(data);
+                })
+        }
+        /*获取url参数*/
+        function getUrlParam(){
+            let {search}=window.location;
+            search=search.slice(1,search.length);
+            search=search.split('&');
+            const obj={};
+            search.forEach(ele=>{
+                let [key,val]=ele.split('=');
+                obj[key]=decodeURIComponent(val);
+            })
+            return obj;
+        }
+    </script>
+
+
+</body><div></div></html>

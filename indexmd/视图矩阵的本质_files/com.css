@@ -1,0 +1,44 @@
+*{box-sizing: border-box}
+body{padding: 0;margin: 0;}
+a{text-decoration: none;}
+.text-center{text-align: center}
+#app{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-bottom: 40px;
+}
+.container{
+    width: 85%;
+}
+.page-title{
+    padding: 18px;
+    font-size: 42px
+}
+#app h2{
+    margin-top: 48px ;
+    font-size: 32px;
+}
+#app h3{
+    margin-top: 48px ;
+    font-size: 24px;
+}
+#app h4{
+    margin-top: 32px ;
+    font-size: 18px;
+}
+
+#app img{
+    margin-bottom: 32px ;
+}
+#app pre{
+    margin-bottom: 32px ;
+}
+@media screen and (min-width: 1440px) {
+    .container{
+        width: 60%;
+    }
+    .page-title{padding: 40px;font-size: 32px}
+}
+
+

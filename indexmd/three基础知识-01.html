@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<!-- saved from url=(0121)http://yxyy.name/blog/md.html?ossName=16507784681828292589226426232.md&title=three%E5%9F%BA%E7%A1%80%E7%9F%A5%E8%AF%86-01 -->
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>李伟的博客</title>
+    <link rel="Shortcut Icon" href="https://yxyy-img.oss-cn-shanghai.aliyuncs.com/favicon.ico" type="image/x-icon">
+    <link rel="stylesheet" type="text/css" href="./three基础知识-01_files/com.css">
+    <link rel="stylesheet" type="text/css" href="./three基础知识-01_files/github-markdown.css">
+    <link rel="stylesheet" type="text/css" href="./three基础知识-01_files/md.css">
+</head>
+<body>
+    <div id="app"><h1 class="text-center page-title">three基础知识-01</h1> <div class="container"><article class="markdown-body"><h2 id="前言">前言</h2>
+<h3 id="课件地址">课件地址</h3>
+<p><a href="https://github.com/buglas/threejs-lesson">https://github.com/buglas/threejs-lesson</a></p>
+<h3 id="课堂目标">课堂目标</h3>
+<ul>
+<li>理解three.js 的渲染结构</li>
+<li>对canvas 进行响应式布局</li>
+<li>让canvas 画布自适应设备分辨率</li>
+</ul>
+<h3 id="知识点">知识点</h3>
+<ul>
+<li>three.js 的渲染结构</li>
+<li>canvas 画布的css尺寸和像素尺寸</li>
+<li>显示器的分辨率</li>
+</ul>
+<h2 id="第一章-threejs-的渲染结构">第一章 three.js 的渲染结构</h2>
+<h3 id="1-概述">1-概述</h3>
+<p>之前我们在入门的时候，对three.js 的渲染过程做了一个简单演示，接下来我们对这个渲染过程做一个详细解释。</p>
+<p>Three.js 封装了场景、灯光、阴影、材质、纹理和三维算法，让你不必再直接用WebGL 开发项目。</p>
+<p>当然，我刚才说的是“不必再直接用WebGL”，有的时候我们会间接用到WebGL，比如自定义着色器。</p>
+<p>three.js 在渲染三维场景时，需要创建很多对象，并将它们关联在一起。</p>
+<p>下图便是一个基本的three.js 渲染结构。  </p>
+<p> <img src="./three基础知识-01_files/165077846818223211287607887998.svg" alt="img"> </p>
+<p>解释一下上面的示意图：</p>
+<ul>
+<li><p>Renderer 渲染器</p>
+<p>Renderer 是three.js 的主要对象。当你将一个场景Scene 和一个摄像机Camera 传递到渲染器的渲染方法中，渲染器便会将摄像机视椎体中的三维场景渲染成一个二维图像显示在canvas 画布中。</p>
+</li>
+<li><p>Scene 场景对象</p>
+<p>场景对象是树状结构的，其中包含了三维对象Object3D 和灯光对象Light。</p>
+<p>Object3D 是可以被直接渲染出来的，Object3D是网格对象Mesh和集合对象Group的基类。</p>
+<p>场景对象可以定义场景的背景色和雾效。</p>
+<p>在场景对象的树状结构中，每个对象的变换信息都是相对的。</p>
+<p>比如汽车和汽车里的人，人的位置是相对于汽车而言的，当汽车移动了，人的本地坐标位坐标位虽然不变，但其世界坐标位已经变了。相关原理我们在WebGL 的三维世界里说过。</p>
+</li>
+<li><p>Camera 相机对象</p>
+<p>按理说，相机对象是在场景里的，但是相机对象不在它所看的场景里，这就像我们自己看不见自己的眼睛一样。</p>
+<p>因此，相机对象可以独立于场景之外。</p>
+<p>相机对象是可以作为其它三维对象的子对象的，这样相机就会随其父对象同步变换。</p>
+</li>
+<li><p>Mesh 网格对象</p>
+<p>网格对象由几何体Geometry和材质Material两部分组成，Geometry 负责塑形，Material 负责着色。</p>
+<p>Geometry 和Materia 是可以被多个Mesh 对象复用的。</p>
+<p>比如要绘制两个一模一样的立方体，那只需要实例化两个Mesh 即可，Geometry 和Materia可以使用一套。</p>
+</li>
+<li><p>Geometry 几何体对象</p>
+<p>几何体对象负责塑形，存储了与顶点相关的数据，比如顶点点位、顶点索引、uv坐标等。</p>
+<p>Three.js 中内置了许多基本几何体，我们也可以自定义几何体，或者从外部的模型文件里加载几何体</p>
+</li>
+<li><p>Material 材质对象</p>
+<p>材质对象负责着色，绘制几何体的表面属性，比如漫反射、镜面反射、光泽度、凹凸等。</p>
+<p>材质对象的许多属性都可以用纹理贴图表示，比如漫反射贴图、凹凸贴图等。</p>
+</li>
+<li><p>Texture 纹理对象</p>
+<p>纹理对象就是一张图像。纹理图像的图像源可以是Image 图片、canvas 画布、Video 视频等。</p>
+</li>
+<li><p>Light 光源对象</p>
+<p>Light 对象不像Object3D 那样依托于顶点，它更多的是像Object3D 里的材质Material 那样，作用于物体的样式。</p>
+<p>Light 对象可以理解为在为几何体添加了材质后，再利用光效配合材质对几何体的样式进行二次加工。</p>
+</li>
+</ul>
+<p>我们可以结合入门时绘制的立方体，来理解上面的示意图。</p>
+<h3 id="2-示例-绘制多个立方体">2-示例-绘制多个立方体</h3>
+<p>我们入门时绘制过一个立方体：</p>
+<p><img src="./three基础知识-01_files/164761766309421852899567918738.gif" alt="1"></p>
+<p>其渲染结构如下：</p>
+<p><img src="./three基础知识-01_files/16507784681826749312439811543.svg" alt="threejs-1cube-no-light-scene"></p>
+<p>接下来咱们基于这个例子，练习一下之前说过渲染结构。</p>
+<p>为了让对react+ts 不太熟练的同学更好的适应react+ts，咱们把之前的例子导入react 中。</p>
+<p>1.搭建react+ts 项目</p>
+<pre><code>npx create-react-app 03-basics --template typescript
+</code></pre>
+<p>react+ts 的用法可参考此链接： <a href="https://react-typescript-cheatsheet.netlify.app/docs/basic/setup">https://react-typescript-cheatsheet.netlify.app/docs/basic/setup</a></p>
+<p>2.在react 项目中安装three依赖</p>
+<pre><code>npm install three @types/three --save
+</code></pre>
+<p>3.在react 项目中安装路由，路由版本是react-router-v6</p>
+<pre><code>npm install react-router@6 react-router-dom@6
+</code></pre>
+<p>react-router-v6 的用法可参考此链接：<a href="https://juejin.cn/post/7088526716049555492">https://juejin.cn/post/7088526716049555492</a></p>
+<p>4.在index.tsx 中，必须用路由组件包裹APP。 </p>
+<ul>
+<li>index.tsx</li>
+</ul>
+<pre><code class="language-tsx">import { BrowserRouter } from "react-router-dom";
+import { createRoot } from "react-dom/client";
+import App from "./App";
+
+const container = document.getElementById("root") as HTMLElement;
+const root = createRoot(container);
+root.render(
+  &lt;BrowserRouter&gt;
+    &lt;App /&gt;
+  &lt;/BrowserRouter&gt;
+);
+</code></pre>
+<p> 5.构建项目页面</p>
+<ul>
+<li>src/view/Basics.tsx</li>
+</ul>
+<pre><code class="language-tsx">import React from "react";
+
+const Basics: React.FC = (): JSX.Element =&gt; {
+  return (
+    &lt;nav style={{ width: "60%", margin: "auto" }}&gt;
+      &lt;h2&gt;three.js 基础示例&lt;/h2&gt;
+    &lt;/nav&gt;
+  );
+};
+
+export default Basics;
+</code></pre>
+<ul>
+<li>src/view/RenderStructure.tsx</li>
+</ul>
+<pre><code class="language-tsx">import React from "react";
+
+const RenderStructure: React.FC = (): JSX.Element =&gt; {
+  return &lt;div&gt;RenderStructure 渲染结构&lt;/div&gt;;
+};
+
+export default RenderStructure;
+</code></pre>
+<p> 5.用React Router v6 提供的useRoutes hook 搭建路由。 </p>
+<ul>
+<li>App.tsx</li>
+</ul>
+<pre><code class="language-tsx">import React from "react";
+import { useRoutes } from "react-router-dom";
+import "./App.css";
+import Basics from "./view/Basics";
+import RenderStructure from "./view/RenderStructure";
+
+const App: React.FC = (): JSX.Element =&gt; {
+  const routing = useRoutes([
+    {
+      path: "/",
+      element: &lt;Basics /&gt;,
+    },
+    {
+      path: "RenderStructure",
+      element: &lt;RenderStructure /&gt;,
+  ]);
+  return &lt;&gt;{routing}&lt;/&gt;;
+};
+
+export default App;
+</code></pre>
+<p>之后我们说其它知识的时候，还会再添加新的router。</p>
+<p>6.在首页Basics.tsx 中建立导航栏，用Link 组件实现页面跳转。 </p>
+<ul>
+<li>src/view/Basics.tsx</li>
+</ul>
+<pre><code class="language-tsx">import React from "react";
+import { Link } from "react-router-dom";
+
+const Basics: React.FC = (): JSX.Element =&gt; {
+  return (
+    &lt;nav style={{ width: "60%", margin: "auto" }}&gt;
+      &lt;h2&gt;three.js 基础示例&lt;/h2&gt;
+      &lt;ul&gt;
+        &lt;li&gt;
+            &lt;Link to="/RenderStructure"&gt;RenderStructure 渲染结构&lt;/Link&gt;
+        &lt;/li&gt;
+      &lt;/ul&gt;
+    &lt;/nav&gt;
+  );
+};
+
+export default Basics;
+</code></pre>
+<p>首页效果如下：</p>
+<p><img src="./three基础知识-01_files/1650778468182010814383660346483.png" alt="image-20220420235111762"></p>
+<p>7.在RenderStructure.tsx 页面导入之前的立方体项目。</p>
+<ul>
+<li>src/view/RenderStructure.tsx</li>
+</ul>
+<pre><code class="language-tsx">import React, { useRef, useEffect } from "react";
+import { BoxGeometry, DirectionalLight, Mesh, MeshNormalMaterial, MeshPhongMaterial, PerspectiveCamera, Scene, WebGLRenderer } from "three";
+
+const { innerWidth, innerHeight } = window;
+
+const scene = new Scene();
+const camera = new PerspectiveCamera(75, innerWidth / innerHeight, 0.1, 1000);
+camera.position.z = 5;
+
+const renderer = new WebGLRenderer();
+renderer.setSize(innerWidth, innerHeight);
+
+const geometry = new BoxGeometry();
+const material = new MeshNormalMaterial();
+const cube = new Mesh(geometry, material);
+scene.add(cube);
+
+function animate() {
+  requestAnimationFrame(animate);
+  cube.rotation.x += 0.01;
+  cube.rotation.y += 0.01;
+  renderer.render(scene, camera);
+}
+
+const RenderStructure: React.FC = (): JSX.Element =&gt; {
+  const divRef = useRef&lt;HTMLDivElement&gt;(null);
+  useEffect(() =&gt; {
+    const { current } = divRef;
+    if (current) {
+      current.innerHTML = "";
+      current.append(renderer.domElement);
+      animate();
+    }
+    
+  }, []);
+  return &lt;div ref={divRef}&gt;&lt;/div&gt;;
+};
+
+export default RenderStructure;
+</code></pre>
+<p>在上面的代码中，我没有直接建立<canvas> ，而是在WebGLRenderer 对象的实例化方法里建立的，在其源码可以找到相关逻辑：</canvas></p>
+<pre><code class="language-js">function WebGLRenderer( parameters = {} ) {
+    const _canvas = parameters.canvas !== undefined ? parameters.canvas : createCanvasElement()
+    ……
+  this.domElement = _canvas;
+  ……
+}
+</code></pre>
+<p>通过WebGLRenderer 对象建立了canvas后，再在react的函数组件的useEffect hook 中，将canvas 添加到div 中。</p>
+<pre><code class="language-jsx">const RenderStructure: React.FC = (): JSX.Element =&gt; {
+  const divRef = useRef&lt;HTMLDivElement&gt;(null);
+  useEffect(() =&gt; {
+    const { current } = divRef;
+    current &amp;&amp; current.append(renderer.domElement);
+    animate();
+  }, []);
+  return &lt;div ref={divRef}&gt;&lt;/div&gt;;
+};
+</code></pre>
+<p>当前这个立方体的材质是MeshNormalMaterial，并不受光照影响。</p>
+<p>8.给立方体换个MeshPhongMaterial 材质，再添加光源。</p>
+<pre><code class="language-tsx">const geometry = new BoxGeometry();
+const material = new MeshPhongMaterial({ color: 0x44aa88 });
+const cube = new Mesh(geometry, material);
+scene.add(cube);
+
+const color = 0xffffff;
+const intensity = 1;
+const light = new DirectionalLight(color, intensity);
+light.position.set(-1, 2, 4);
+scene.add(light);
+</code></pre>
+<p>当前的渲染结构如下：</p>
+<p><img src="./three基础知识-01_files/165077846818244345010551411823.svg" alt="img"> </p>
+<p>效果如下：</p>
+<p><img src="./three基础知识-01_files/16507784681829513818830179332.gif" alt="1"></p>
+<p>9.在场景中再添加两个一模一样的立方体，演示几何体和材质可被多个Mesh 对象共享。</p>
+<pre><code class="language-tsx">const geometry = new BoxGeometry();
+const material = new MeshPhongMaterial({ color: 0x44aa88 });
+
+const cubes = [-2, 0, 2].map((num) =&gt; makeInstance(num));
+scene.add(...cubes);
+
+function makeInstance(x: number) {
+  const cube = new Mesh(geometry, material);
+  cube.position.x = x;
+  return cube;
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+
+  cubes.forEach((cube) =&gt; {
+    cube.rotation.x += 0.01;
+    cube.rotation.y += 0.01;
+  });
+
+  renderer.render(scene, camera);
+}
+</code></pre>
+<p>当前的渲染结构如下：</p>
+<p><img src="./three基础知识-01_files/165077846818248299496569366296.svg" alt="threejs-3cubes-scene"></p>
+<p>效果如下：</p>
+<p><img src="./three基础知识-01_files/1650778468182015747643506434983.png" alt="image-20220416191552530"></p>
+<p>关于three.js 的渲染结构咱们就说到这，接下来，咱们说一下three.js 的响应式设计。</p>
+</article> <div id="weixin" style=""><div class="text-center"><img width="300px" src="./three基础知识-01_files/weixin.jpg" alt="微信"></div> <div class="text-center">
+                    最近忙webgl，没建评论区，有问题微信聊
+                </div></div></div></div>
+    <script src="./three基础知识-01_files/marked.js.下载"></script>
+    <script src="./three基础知识-01_files/vue.js.下载"></script>
+    <script>
+        let urlParam=getUrlParam();
+        const app = new Vue({
+            el: '#app',
+            data: {
+                title: urlParam.title,
+                md:'loading……',
+                loaded:false
+            },
+            created(){
+                getMd().then(md=>{
+                    this.md=md;
+                    this.loaded=true;
+                })
+            },
+        })
+        /*抓取md文件*/
+        function getMd(){
+            const url='https://blog-mds.oss-cn-beijing.aliyuncs.com/'+urlParam.ossName;
+            return fetch(url)
+                .then(res=>res.text())
+                .then(data=>{
+                    return marked(data);
+                })
+        }
+        /*获取url参数*/
+        function getUrlParam(){
+            let {search}=window.location;
+            search=search.slice(1,search.length);
+            search=search.split('&');
+            const obj={};
+            search.forEach(ele=>{
+                let [key,val]=ele.split('=');
+                obj[key]=decodeURIComponent(val);
+            })
+            return obj;
+        }
+    </script>
+
+
+</body><div></div></html>
